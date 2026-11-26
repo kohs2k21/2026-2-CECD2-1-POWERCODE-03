@@ -1,0 +1,122 @@
+{
+  "contract": "benchmark-esb-rule-b-delivery1.0",
+  "issue": 251,
+  "provider": "rule_b_native_v2",
+  "native_contract": "original-teacher-rule-v2",
+  "service_dto": "baseline_rule_recommendation draft DTO; native input/response retained",
+  "automatic_operational_activation": false,
+  "feature_model_replaced": false,
+  "AE_or_ML_retrained": false,
+  "model": {
+    "base_repo": "Qwen/Qwen3.6-27B",
+    "base_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "adapter": "models/rule",
+    "weight_sha256": "36589b07d9fb8ee3b955598ea652a08de1f72243ceb066fd793c62e39692c11e",
+    "config_sha256": "432190988d7a01ab0196093bd5fa897458f1c586a2c7410c5306b27679c3ff66",
+    "original_config_sha256": "9416548370645004a1048a1a24a5ed22d550283370fc983afbcf5af66935655c",
+    "config_public_change": "base_model_name_or_path only",
+    "selected_epoch": 2
+  },
+  "generation": {
+    "greedy": true,
+    "thinking": false,
+    "grammar": false,
+    "max_new_tokens": 1024,
+    "maximum_input_tokens": 4096,
+    "maximum_repairs": 1,
+    "quantization": "NF4 double quantization",
+    "compute_dtype": "bfloat16"
+  },
+  "files": [
+    {
+      "path": "BACKEND_HANDOFF.md",
+      "sha256": "18843797e0376c95db6932d49eff45262b74247fd2a705f184932a8cda0c5c67",
+      "bytes": 7040
+    },
+    {
+      "path": "README.md",
+      "sha256": "b22c8b566f46529ad7d9fc4cbd5ef42c4ca8cf778332b2bded8adc0a15d92abe",
+      "bytes": 5079
+    },
+    {
+      "path": "VALIDATION.md",
+      "sha256": "8bdd293ea990ade1b5152cc258e4245fae8ae34028532b501e34be51c85b4ca9",
+      "bytes": 3567
+    },
+    {
+      "path": "__init__.py",
+      "sha256": "95bd1a2e62121609fe202f436ad01874f97915e455457cfd01a136c4ef25ca30",
+      "bytes": 383
+    },
+    {
+      "path": "__main__.py",
+      "sha256": "54fe785bd5963e5e33e9f5742a73e70878022696435ebba9466d728d33b9c436",
+      "bytes": 2238
+    },
+    {
+      "path": "bridge.py",
+      "sha256": "7549f94afb9dbf40408121580924943b2cd5391e84a65c5d0786f7ddb2b7cc1b",
+      "bytes": 9786
+    },
+    {
+      "path": "contract.py",
+      "sha256": "383e4ffc7cdff1d2d7a716e8d0663faa9f162d2012eab52e56b63cf774cfa733",
+      "bytes": 10335
+    },
+    {
+      "path": "contracts/rule_v2.schema.json",
+      "sha256": "78d072a3e9a25fd6291d9d7bd09b3bc3db8dd06b65cbe49e002ba094f641180c",
+      "bytes": 3002
+    },
+    {
+      "path": "environment.json",
+      "sha256": "93000283098601a9dc29474ce8e808aaa87b7ee060e914e114b09187c31b1a23",
+      "bytes": 416
+    },
+    {
+      "path": "examples/public_pfs_saved_responses.json",
+      "sha256": "c619564f23fbce1accaf6e6b48e52e6e5081a3da89617b47cb9dd4d09706469c",
+      "bytes": 80734
+    },
+    {
+      "path": "inference.py",
+      "sha256": "43bf5efd5e2fbfa0219a418e05d3de1793b5d318c09cee9a9f8cef5f5dbf2f7d",
+      "bytes": 7274
+    },
+    {
+      "path": "models/base_files.json",
+      "sha256": "a08555b9bc3128366c87987231ebd8688cd6d581360f81aeef9cc217686e9a08",
+      "bytes": 3883
+    },
+    {
+      "path": "models/rule/adapter_config.json",
+      "sha256": "432190988d7a01ab0196093bd5fa897458f1c586a2c7410c5306b27679c3ff66",
+      "bytes": 1208
+    },
+    {
+      "path": "models/rule/adapter_model.safetensors",
+      "sha256": "36589b07d9fb8ee3b955598ea652a08de1f72243ceb066fd793c62e39692c11e",
+      "bytes": 95136344
+    },
+    {
+      "path": "native_policy.py",
+      "sha256": "4487c7d636fe4bf0c71df92a3e8d427c48e96e1418d6f10bb4e764e41d7eaccc",
+      "bytes": 9271
+    },
+    {
+      "path": "provenance.json",
+      "sha256": "89bceca697f815e86a270f6d1e36c5cc4b7631e26b78b8b4207cd5524764d922",
+      "bytes": 2831
+    },
+    {
+      "path": "tests/test_delivery.py",
+      "sha256": "4793745af7f4132ba2c1bc1ed4b463b7d211feae90681da1c2fe5ac9291c5679",
+      "bytes": 14854
+    },
+    {
+      "path": "training.json",
+      "sha256": "498ae70b9811aac121591866cf7a9f4977f26e4739f881cb451a81df8e4c4464",
+      "bytes": 2256
+    }
+  ]
+}

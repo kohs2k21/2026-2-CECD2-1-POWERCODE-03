@@ -1,0 +1,64 @@
+{
+  "contract": "rule-b-delivery-provenance1",
+  "native_function_extraction": [
+    {
+      "file": "data/eda/full_log_teacher_dataset/20261014T202400+0900/implementation/teacher_contract.py",
+      "file_sha256": "bf4a4ac34ec669cc2f291b6a29e5a76cc3922f9ecae3633f5331247417a6a7a1",
+      "symbol": "RULE_SYSTEM",
+      "line": 7,
+      "extracted_source_sha256": "be8065787b3401b616319004e1500e5588f66ad1337eeb63cc6b7fc211d6d463"
+    },
+    {
+      "file": "data/eda/full_log_teacher_dataset/20261014T202400+0900/implementation/teacher_contract.py",
+      "file_sha256": "bf4a4ac34ec669cc2f291b6a29e5a76cc3922f9ecae3633f5331247417a6a7a1",
+      "symbol": "validate_rule",
+      "line": 118,
+      "extracted_source_sha256": "c681903cba2cd90bc8ce6f45d5aeb91886b968f2c559756346e92915e1a10653"
+    },
+    {
+      "file": "data/eda/full_log_teacher_dataset/20261014T202400+0900/implementation/audit_reviewed.py",
+      "file_sha256": "d54756cb82bb95e6a8a18529c680e0c79b4a92f2810e06bc2dc3a033bce0c076",
+      "symbol": "expected_rule_state",
+      "line": 23,
+      "extracted_source_sha256": "ba9c9f16b87b8672f3294e3104e8fbfeea1eeeafe9d22789605cf7e7c0941dac"
+    },
+    {
+      "file": "data/eda/full_log_teacher_dataset/20261014T202400+0900/implementation/audit_reviewed.py",
+      "file_sha256": "d54756cb82bb95e6a8a18529c680e0c79b4a92f2810e06bc2dc3a033bce0c076",
+      "symbol": "strict_rule",
+      "line": 40,
+      "extracted_source_sha256": "a73a0573af07f656d89c2f147b50b25bf36043efb806103111682c9c63bd341d"
+    },
+    {
+      "file": "data/eda/full_log_sft/20261014T222725+0900/implementation/scoring.py",
+      "file_sha256": "4e2339f5f226b09595348e152d000bef79bc78acb21a83b926654c45eae9f532",
+      "symbol": "rule_check",
+      "line": 185,
+      "extracted_source_sha256": "e93255bf459b82568ba589ec7091b65a79ebef0056f0e2417c71f6506b7fca4e"
+    },
+    {
+      "file": "data/eda/rule_original_teacher_initialization_control/20261125T150941_279331+0900/benchmark_initialized_esb/rule/checkpoints/epoch_2/adapter/adapter_config.json",
+      "file_sha256": "9416548370645004a1048a1a24a5ed22d550283370fc983afbcf5af66935655c",
+      "public_change": "Only base_model_name_or_path replaced by public repo_id; adapter tensors identical."
+    }
+  ],
+  "weight_sha256": "36589b07d9fb8ee3b955598ea652a08de1f72243ceb066fd793c62e39692c11e",
+  "original_selection": {
+    "selected_epoch": 2,
+    "selection_split": "validation",
+    "criterion": "minimum full-validation answer-token NLL; quality evaluation reported separately",
+    "validation_losses": [
+      {
+        "epoch": 1,
+        "loss": 0.00454693711746439,
+        "complete_validation": true
+      },
+      {
+        "epoch": 2,
+        "loss": 0.002853262234753365,
+        "complete_validation": true
+      }
+    ]
+  },
+  "base_and_customer_raw_rows_included": false
+}

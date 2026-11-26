@@ -1,0 +1,14 @@
+{
+  "python": "3.10.20 (main, Jun 11 2026, 15:17:37) [GCC 14.3.0]",
+  "role": "CPU publication validation; historical B GPU runtime configuration retained",
+  "packages": {
+    "torch": "2.11.0+cu129",
+    "transformers": "5.19.0",
+    "peft": "0.21.2",
+    "bitsandbytes": "0.50.2",
+    "jsonschema": "4.26.0",
+    "accelerate": "1.15.0",
+    "safetensors": "0.8.0"
+  },
+  "installation_during_publication": false
+}

@@ -1,0 +1,1975 @@
+{
+  "scope": "Actual B outputs on previously inspected public PFS development material. No raw CSV rows; historical artifact paths are provenance strings only. CPU replay is not new generation.",
+  "items": [
+    {
+      "id": "pfs_input_transfer_relative_execution",
+      "input": {
+        "feature": {
+          "id": "fd_140009d9d2bebd6b2e543918",
+          "sha": "b3480426965a9799af2849d67f66db8449db4d501c47826f25929a75e0d37b9d",
+          "meaning": "Stage-in transfer duration divided by execution duration for each TASK row; unavailable for missing inputs or zero execution duration.",
+          "expression": {
+            "op": "divide",
+            "args": [
+              {
+                "op": "column",
+                "table": "TASK",
+                "column": "stage_in_delay"
+              },
+              {
+                "op": "column",
+                "table": "TASK",
+                "column": "runtime"
+              }
+            ]
+          },
+          "dtype": "number",
+          "unit": "ratio",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": "missing",
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_0f337d8c514d5e8c47a8e6",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 2280,
+          "missing_count": 1020,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 0.022284122562674095,
+          "max": 0.8666666666666667,
+          "p95": 0.5,
+          "p99": 0.7263,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "0.500",
+            "p99": "0.7263"
+          }
+        },
+        "measurement_sha": "dce7574fb116f092ba8fff96f584b4346cd3c9d7547baf4e6f598afee1706206",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "runtime"
+            ],
+            [
+              "TASK",
+              "stage_in_delay"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_4594878f1364303da8726e",
+          "state": "verified",
+          "value": 0.5,
+          "value_exact": "0.5",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "ratio",
+          "reference_split": "train",
+          "reference_valid_n": 5700,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "b3480426965a9799af2849d67f66db8449db4d501c47826f25929a75e0d37b9d",
+          "semantic_definition_sha": "ffabd41ba13962f755664c1eaec780f1ff9daf2135107fa85c7c2c8770ea0634",
+          "application_semantic_definition_sha": "ffabd41ba13962f755664c1eaec780f1ff9daf2135107fa85c7c2c8770ea0634",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "b448d3ad7d30ddce42b7afaaa81d8cb032a6e36216fca319e07ec68db83fd25d"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "runtime",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          },
+          {
+            "table": "TASK",
+            "column": "stage_in_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/input_transfer_relative_execution/feature_bundle.json",
+          "sha256": "736981e287d17bfa59f7ddb6e4a0ae01bdf4a533dda0aeb9d2a54fe840ac1f9b"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/input_transfer_relative_execution/feature_bundle.json",
+            "sha256": "736981e287d17bfa59f7ddb6e4a0ae01bdf4a533dda0aeb9d2a54fe840ac1f9b"
+          },
+          "immutable_definition_sha": "b3480426965a9799af2849d67f66db8449db4d501c47826f25929a75e0d37b9d",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "6c9a0143a583881b3425327d368256b3a2e293fefff8f506353059a357449fdb"
+        }
+      },
+      "input_sha": "d838da884e94d00d86be69ceb27a26effe486e3a4ea4efb550f5e164c2d34f5c",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_140009d9d2bebd6b2e543918",
+        "sha": "b3480426965a9799af2849d67f66db8449db4d501c47826f25929a75e0d37b9d",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-conservation and supply predicates are not inferred."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_0f337d8c514d5e8c47a8e6"
+            ],
+            "needed": [],
+            "reason": "Inspected stage_in_delay divided by runtime for each TASK row. Preserve the supplied typed condition with 2280 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed injection or business necessity."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 0.5
+            },
+            "evidence": [
+              "m_0f337d8c514d5e8c47a8e6",
+              "baseline_4594878f1364303da8726e"
+            ],
+            "needed": [],
+            "reason": "Strict gt against code-computed frozen train p95 0.5 ratio with supplied period/population/missing/refresh policy. Offline comparison, not a business threshold."
+          }
+        ]
+      },
+      "original_record_sha256": "51b06de52dca371e77957351cf370fcd1a15028185073692d5bff9088b21789f",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_post_script_delay",
+      "input": {
+        "feature": {
+          "id": "fd_08eb22eb98f6afd447870f5f",
+          "sha": "8b43c957bde664148edc860a2d2349ae95469e3e6444bce001336dd363315d9d",
+          "meaning": "Return the post_script_delay value for each task, preserving missingness and seconds.",
+          "expression": {
+            "op": "column",
+            "table": "TASK",
+            "column": "post_script_delay"
+          },
+          "dtype": "number",
+          "unit": "second",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_18d704b621dc7286c01397",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 3240,
+          "missing_count": 60,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 5,
+          "max": 6,
+          "p95": 5,
+          "p99": 6,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "5.000",
+            "p99": "6.000"
+          }
+        },
+        "measurement_sha": "3c7b9d2fe47abcad6335a4a58e126ddfa4220943e910bc0178953b99ff8211c7",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "post_script_delay"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_59f1729f9c412b1b8d8b73",
+          "state": "verified",
+          "value": 5.0,
+          "value_exact": "5.0",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "second",
+          "reference_split": "train",
+          "reference_valid_n": 8100,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "8b43c957bde664148edc860a2d2349ae95469e3e6444bce001336dd363315d9d",
+          "semantic_definition_sha": "a63e705f94070a3e7fc9b1a907bc6f91302acfc6397813e5533f8aa49574b21c",
+          "application_semantic_definition_sha": "a63e705f94070a3e7fc9b1a907bc6f91302acfc6397813e5533f8aa49574b21c",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "cba1eab8bfcfcc3ee725ff8519f55876864fa368a3e51415e7dbbaa9615efbd0"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "post_script_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/post_script_delay/feature_bundle.json",
+          "sha256": "a2e13d22cdbeaf01224278b71ce3e6ea15f2df68297816147dcc1f7df54d78cf"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/post_script_delay/feature_bundle.json",
+            "sha256": "a2e13d22cdbeaf01224278b71ce3e6ea15f2df68297816147dcc1f7df54d78cf"
+          },
+          "immutable_definition_sha": "8b43c957bde664148edc860a2d2349ae95469e3e6444bce001336dd363315d9d",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "57b83f439b5ee9a6662629c889ace7e7eed56636e49668d8b59d1069041eceaa"
+        }
+      },
+      "input_sha": "ca77edae5a032f8843f5d8fc80e7960a100a33741b8919f96f59797e80254837",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_08eb22eb98f6afd447870f5f",
+        "sha": "8b43c957bde664148edc860a2d2349ae95469e3e6444bce001336dd363315d9d",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-conservation and extra normality policy are not used."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_18d704b621dc7286c01397"
+            ],
+            "needed": [],
+            "reason": "Inspected post_script_delay. Preserve the supplied typed condition with 3240 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed business necessity or extra normality/conservation policy."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 5.0
+            },
+            "evidence": [
+              "m_18d704b621dc7286c01397",
+              "baseline_59f1729f9c412b1b8d8b73"
+            ],
+            "needed": [],
+            "reason": "Strict gt against code-computed frozen train p95 5.0 second with supplied period/population/missing/refresh policy. Offline scope, no business contract required."
+          }
+        ]
+      },
+      "original_record_sha256": "12a054f78f97a77a8cd4b7849b13536aee925a887a1683b20399205f1b90fe2a",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_queue_delay",
+      "input": {
+        "feature": {
+          "id": "fd_23c21e02174ed8c77124fd8e",
+          "sha": "03834c9e1e469e4df266384ccb7ab9f74a883414640d1ce39e629251a5eda7c8",
+          "meaning": "Return the queue_delay value for each task row, preserving seconds and missingness.",
+          "expression": {
+            "op": "column",
+            "table": "TASK",
+            "column": "queue_delay"
+          },
+          "dtype": "number",
+          "unit": "second",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_4e2bda04d7b2a47c3cbf07",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 3300,
+          "missing_count": 0,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 0,
+          "max": 544,
+          "p95": 158,
+          "p99": 519,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "158.000",
+            "p99": "519.000"
+          }
+        },
+        "measurement_sha": "cf1c0426265dc8a406a0b7d5f0368cab5190fa80e46431571a987cf886f82103",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "queue_delay"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_ad991806f6bb11614383aa",
+          "state": "verified",
+          "value": 161.0,
+          "value_exact": "161.0",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "second",
+          "reference_split": "train",
+          "reference_valid_n": 8250,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "03834c9e1e469e4df266384ccb7ab9f74a883414640d1ce39e629251a5eda7c8",
+          "semantic_definition_sha": "fce1fac669365df15b189581777c372f6c72071a079e0bea3fca5ed6d0e3d8ff",
+          "application_semantic_definition_sha": "fce1fac669365df15b189581777c372f6c72071a079e0bea3fca5ed6d0e3d8ff",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "7016e8d644eb7e04c9f09f15358c8efb78cfdcc31427af3a109c3ff284717f95"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "queue_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/queue_delay/feature_bundle.json",
+          "sha256": "8856cd70fe84d8da7914e06237dde7bbc703020547b29df031af30eec92d4853"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/queue_delay/feature_bundle.json",
+            "sha256": "8856cd70fe84d8da7914e06237dde7bbc703020547b29df031af30eec92d4853"
+          },
+          "immutable_definition_sha": "03834c9e1e469e4df266384ccb7ab9f74a883414640d1ce39e629251a5eda7c8",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "5b5817338608b46cc6e71eee25b4d7c16626a8dcfadbba07b5546c751dbfb74e"
+        }
+      },
+      "input_sha": "cc7850c045a18816a6171ecbf981aeaf1392da2f3fbb9d78b856b05f2d4dc04a",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_23c21e02174ed8c77124fd8e",
+        "sha": "03834c9e1e469e4df266384ccb7ab9f74a883414640d1ce39e629251a5eda7c8",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-conservation and extra normality policy are not imposed."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_4e2bda04d7b2a47c3cbf07"
+            ],
+            "needed": [],
+            "reason": "Inspected return the queue_delay value for each task row, preserving seconds and missingness.. Preserve the supplied typed condition with 3300 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed business contract or online utility."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 161.0
+            },
+            "evidence": [
+              "m_4e2bda04d7b2a47c3cbf07",
+              "baseline_ad991806f6bb11614383aa"
+            ],
+            "needed": [],
+            "reason": "Strict gt against original frozen train p95 161.0 second with supplied train-only baseline. Offline comparison, not a business rule."
+          }
+        ]
+      },
+      "original_record_sha256": "a6abc0656620c6131330fd91f14c8df38aed2a98d6df15699dfbb25e0c3110f2",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_runtime",
+      "input": {
+        "feature": {
+          "id": "fd_eccca8d1616f7349a3ed71f9",
+          "sha": "809d81cc9e0bb6c91f3c9cfb968297759e044f63867bd9703f3aa349d2c7befd",
+          "meaning": "Return the measured task execution duration in seconds for each task row, preserving any missingness.",
+          "expression": {
+            "op": "column",
+            "table": "TASK",
+            "column": "runtime"
+          },
+          "dtype": "number",
+          "unit": "second",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_0ef09fa2ecb0a5769e8175",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 3300,
+          "missing_count": 0,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 1,
+          "max": 1099,
+          "p95": 416.05,
+          "p99": 626,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "416.050",
+            "p99": "626.000"
+          }
+        },
+        "measurement_sha": "ad8091fb900780e14a19c6d2c273d077cf07ee33861ac71ee2a429800bde924c",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "runtime"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_5e44243d09557ce4ee10a2",
+          "state": "verified",
+          "value": 418.0,
+          "value_exact": "418.0",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "second",
+          "reference_split": "train",
+          "reference_valid_n": 8250,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "809d81cc9e0bb6c91f3c9cfb968297759e044f63867bd9703f3aa349d2c7befd",
+          "semantic_definition_sha": "b33959fefcad673debba7bdba650ba54ec16144af14df38f17c56f71a4223ec1",
+          "application_semantic_definition_sha": "b33959fefcad673debba7bdba650ba54ec16144af14df38f17c56f71a4223ec1",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "55d009b8b175aaf7055c5c6230bf127a4fa4e45f0716556702d7f58325a80e89"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "runtime",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/runtime/feature_bundle.json",
+          "sha256": "b267bdd66ada53f082526b7845537eeafd9aee8bf5cc895792b16fc35bbd44c1"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/runtime/feature_bundle.json",
+            "sha256": "b267bdd66ada53f082526b7845537eeafd9aee8bf5cc895792b16fc35bbd44c1"
+          },
+          "immutable_definition_sha": "809d81cc9e0bb6c91f3c9cfb968297759e044f63867bd9703f3aa349d2c7befd",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "fba44e89a0ac2784bee1f74ac360de6bd49bd629c815cb8a3c571a524df1786b"
+        }
+      },
+      "input_sha": "80f1c947dfbf2ec1a393a84236b3e44e9a9dd1cd46c233c6c3e7ccb01629c31e",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_eccca8d1616f7349a3ed71f9",
+        "sha": "809d81cc9e0bb6c91f3c9cfb968297759e044f63867bd9703f3aa349d2c7befd",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-inspected no-applicable preserves supplied typed conditions."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_0ef09fa2ecb0a5769e8175"
+            ],
+            "needed": [],
+            "reason": "Inspected return the measured task execution duration in seconds for each task row, preserving any missingness. Preserve the supplied typed condition with 3300 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed business necessity or online utility."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 418.0
+            },
+            "evidence": [
+              "m_0ef09fa2ecb0a5769e8175",
+              "baseline_5e44243d09557ce4ee10a2"
+            ],
+            "needed": [],
+            "reason": "Strict gt against original frozen train p95 418.0 second with supplied train-only baseline. Offline comparison, not a business contract."
+          }
+        ]
+      },
+      "original_record_sha256": "953f39583e238c8a01b41c93e69827034d9acd03bbf79f15d7041d9c6e4c8217",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_stage_in_delay",
+      "input": {
+        "feature": {
+          "id": "fd_953a4f562b4a156c78f04869",
+          "sha": "4d1e1b0a1c5b1dc45cdc147ea46ce077fd6ecbcf99e3e9cd6d2885cbd1a9107d",
+          "meaning": "Return the stage_in_delay value for each TASK row, preserving missingness and seconds.",
+          "expression": {
+            "op": "column",
+            "table": "TASK",
+            "column": "stage_in_delay"
+          },
+          "dtype": "number",
+          "unit": "second",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_31f4ed25afe1a76f8f6af5",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 2280,
+          "missing_count": 1020,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 2,
+          "max": 75,
+          "p95": 32,
+          "p99": 43,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "32.000",
+            "p99": "43.000"
+          }
+        },
+        "measurement_sha": "3444b93d60b9b48aa3b52f9e4982f8231d0946932094b92f208d85764c21e4bb",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "stage_in_delay"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_130c27bb89cbf2c8da2b9b",
+          "state": "verified",
+          "value": 32.0,
+          "value_exact": "32.0",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "second",
+          "reference_split": "train",
+          "reference_valid_n": 5700,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "4d1e1b0a1c5b1dc45cdc147ea46ce077fd6ecbcf99e3e9cd6d2885cbd1a9107d",
+          "semantic_definition_sha": "8b7fa2ad42103a749a2a1b64aac06b73b378ae1007729c917aead2a5840f60f6",
+          "application_semantic_definition_sha": "8b7fa2ad42103a749a2a1b64aac06b73b378ae1007729c917aead2a5840f60f6",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "5a113b643d391d8406a079f0fb231c2920c6b8d576943699ca45bbc574f7362c"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "stage_in_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/stage_in_delay/feature_bundle.json",
+          "sha256": "5c199efc5d41d3af3a5067a7a5d37bb97144e3025765a83981a504f1eab208f0"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/stage_in_delay/feature_bundle.json",
+            "sha256": "5c199efc5d41d3af3a5067a7a5d37bb97144e3025765a83981a504f1eab208f0"
+          },
+          "immutable_definition_sha": "4d1e1b0a1c5b1dc45cdc147ea46ce077fd6ecbcf99e3e9cd6d2885cbd1a9107d",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "2443c43c6126f46c8d4006faab5c8f927af26f4434c3c7495106fa131c1969ca"
+        }
+      },
+      "input_sha": "38a62e36c1c8c82a945917f543629cc5260cc1580c7941841108f27166dd249a",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_953a4f562b4a156c78f04869",
+        "sha": "4d1e1b0a1c5b1dc45cdc147ea46ce077fd6ecbcf99e3e9cd6d2885cbd1a9107d",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-conservation and supply-necessity contracts are not inferred."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_31f4ed25afe1a76f8f6af5"
+            ],
+            "needed": [],
+            "reason": "Inspected stage_in_delay in TASK. Preserve the supplied typed condition with 2280 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed business necessity or fault conservation."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 32.0
+            },
+            "evidence": [
+              "m_31f4ed25afe1a76f8f6af5",
+              "baseline_130c27bb89cbf2c8da2b9b"
+            ],
+            "needed": [],
+            "reason": "Strict gt against frozen train p95 32.0 second with supplied period/population/missing/refresh policy. No extra normality, independence or business-necessity predicate is inferred."
+          }
+        ]
+      },
+      "original_record_sha256": "54aa997570d5d40d34febe59d9ffa9b42979fd28e9637874233fec92d9ade727",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_stage_out_delay",
+      "input": {
+        "feature": {
+          "id": "fd_5a651306308861779af2bf86",
+          "sha": "b322d1296b30bee206f7af0acde95eaa85c936d98d7f5d69ed983cf5f7680d42",
+          "meaning": "Return the stage_out_delay value for each task row, preserving missingness and seconds.",
+          "expression": {
+            "op": "column",
+            "table": "TASK",
+            "column": "stage_out_delay"
+          },
+          "dtype": "number",
+          "unit": "second",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_37cb286c13e7f7fc2901c1",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 2198,
+          "missing_count": 1102,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 2,
+          "max": 78,
+          "p95": 19,
+          "p99": 37,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "19.000",
+            "p99": "37.000"
+          }
+        },
+        "measurement_sha": "be90b94ced2821bce4c30ccdc10e6406878c9695b8be516f49b1ac406a8a4b9d",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "stage_out_delay"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_02d5eef55874f8aeac9f11",
+          "state": "verified",
+          "value": 19.0,
+          "value_exact": "19.0",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "second",
+          "reference_split": "train",
+          "reference_valid_n": 5498,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "b322d1296b30bee206f7af0acde95eaa85c936d98d7f5d69ed983cf5f7680d42",
+          "semantic_definition_sha": "f3e44a9a141e2dca0f68b13cae63a30a18d4f73578fb7a7d6e94b6f5e6458209",
+          "application_semantic_definition_sha": "f3e44a9a141e2dca0f68b13cae63a30a18d4f73578fb7a7d6e94b6f5e6458209",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "d47fac3e8542d12275e8ccc7ea0d45f51c4bc8ff8f2ee3be51eab70516ee0d41"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "stage_out_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/stage_out_delay/feature_bundle.json",
+          "sha256": "db85640a284aeb1dab3230adecfde77d59071900eb39841098058cd182eedd4d"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/stage_out_delay/feature_bundle.json",
+            "sha256": "db85640a284aeb1dab3230adecfde77d59071900eb39841098058cd182eedd4d"
+          },
+          "immutable_definition_sha": "b322d1296b30bee206f7af0acde95eaa85c936d98d7f5d69ed983cf5f7680d42",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "000028ecd1d1a88253bd506efbb8e62c366d6eec3ca20616b772c692ba74ecb2"
+        }
+      },
+      "input_sha": "e7a543a3565f7d0c9cccb865acc197f6f0174f8b7cc2be4f8aab714f0493ca76",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_5a651306308861779af2bf86",
+        "sha": "b322d1296b30bee206f7af0acde95eaa85c936d98d7f5d69ed983cf5f7680d42",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-inspected no-applicable still requires usable output rows; this feature has usable rows."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_37cb286c13e7f7fc2901c1"
+            ],
+            "needed": [],
+            "reason": "Inspected stage_out_delay. Preserve the supplied typed condition with 2198 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed business necessity or online utility."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 19.0
+            },
+            "evidence": [
+              "m_37cb286c13e7f7fc2901c1",
+              "baseline_02d5eef55874f8aeac9f11"
+            ],
+            "needed": [],
+            "reason": "Strict gt against code-computed frozen train p95 19.0 second with supplied period/population/missing/refresh policy. Inspected feature unit second; no extra normality or business contract inferred."
+          }
+        ]
+      },
+      "original_record_sha256": "4419f7e3338b1208e02b108f0e2ca4a2475adadeea6d304f288b75870565bc85",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_waiting_relative_execution",
+      "input": {
+        "feature": {
+          "id": "fd_29dc90b852f28966f14b5e3b",
+          "sha": "897ca93be0f100ac9d128ecb627e34d4beb398b733f2c59133d5408f614f197b",
+          "meaning": "Compute queue_delay divided by runtime for each TASK row; unavailable for missing inputs or zero execution duration, and valid numeric zero.",
+          "expression": {
+            "op": "divide",
+            "args": [
+              {
+                "op": "column",
+                "table": "TASK",
+                "column": "queue_delay"
+              },
+              {
+                "op": "column",
+                "table": "TASK",
+                "column": "runtime"
+              }
+            ]
+          },
+          "dtype": "number",
+          "unit": "ratio",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": "missing",
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_348b094177f6b5718a3cf6",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 3300,
+          "missing_count": 0,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 0,
+          "max": 9.416666666666666,
+          "p95": 2.158536585365854,
+          "p99": 4.931346899224806,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "2.158536585365853700",
+            "p99": "4.93134689922480632"
+          }
+        },
+        "measurement_sha": "6ced2625e03bd4b793d69ed742d49a37a8785ab6a082b44a8ca113a0e6c48cdf",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "queue_delay"
+            ],
+            [
+              "TASK",
+              "runtime"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_28cf22adfa57a504779b75",
+          "state": "verified",
+          "value": 2.0127906976744185,
+          "value_exact": "2.0127906976744185",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "ratio",
+          "reference_split": "train",
+          "reference_valid_n": 8250,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "897ca93be0f100ac9d128ecb627e34d4beb398b733f2c59133d5408f614f197b",
+          "semantic_definition_sha": "4aa6c4a678d9bf12371ce8a8cad7f3d043ca1d4a54f91e2daec7ae6f6bf7f119",
+          "application_semantic_definition_sha": "4aa6c4a678d9bf12371ce8a8cad7f3d043ca1d4a54f91e2daec7ae6f6bf7f119",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "e5f929b0c0743c30c349a6de0f9cbdd0a430a08d36a2a9a75b80f4bc4b3ba4ee"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "queue_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          },
+          {
+            "table": "TASK",
+            "column": "runtime",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/waiting_relative_execution/feature_bundle.json",
+          "sha256": "96c048e8718b790a841f78f0455eccfdd2ee2942be026c9b4c4ee03a8c65f519"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/waiting_relative_execution/feature_bundle.json",
+            "sha256": "96c048e8718b790a841f78f0455eccfdd2ee2942be026c9b4c4ee03a8c65f519"
+          },
+          "immutable_definition_sha": "897ca93be0f100ac9d128ecb627e34d4beb398b733f2c59133d5408f614f197b",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "8f9915bb76e521111864b2faf40b9f55679e90fa678d2416d654e883ad3b4ed6"
+        }
+      },
+      "input_sha": "14858e998a3137b5ff4b9dd17d13462c8ea112db21aea05009a1bbdf46afe6ff",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_29dc90b852f28966f14b5e3b",
+        "sha": "897ca93be0f100ac9d128ecb627e34d4beb398b733f2c59133d5408f614f197b",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-conservation and supply-chain predicates are not inferred."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_348b094177f6b5718a3cf6"
+            ],
+            "needed": [],
+            "reason": "Inspected queue_delay divided by runtime for each TASK row. Preserve the supplied typed condition with 3300 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed business necessity or online utility."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 2.0127906976744185
+            },
+            "evidence": [
+              "m_348b094177f6b5718a3cf6",
+              "baseline_28cf22adfa57a504779b75"
+            ],
+            "needed": [],
+            "reason": "Strict gt against original frozen train p95 2.0127906976744185 ratio with supplied train-only baseline. Offline comparison, not a business contract."
+          }
+        ]
+      },
+      "original_record_sha256": "f8c6c7bd24f3b36687143c61fb31f7d8eac13e56a27b54fa86fe13744ca7d2cc",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    },
+    {
+      "id": "pfs_wms_delay",
+      "input": {
+        "feature": {
+          "id": "fd_d7730c18328bde7dc6495bc4",
+          "sha": "6f4e02519283ee9f4e91859de36253340e4884aa73c425b3c50d4bfed0649cf3",
+          "meaning": "Return the wms_delay value for each TASK row, preserving seconds and missingness.",
+          "expression": {
+            "op": "column",
+            "table": "TASK",
+            "column": "wms_delay"
+          },
+          "dtype": "number",
+          "unit": "second",
+          "grain": {
+            "table": "TASK",
+            "keys": [
+              "ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        },
+        "measurement_id": "m_2f343af25580f9b5741e91",
+        "measurement": {
+          "row_count": 3300,
+          "valid_count": 3300,
+          "missing_count": 0,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 0,
+          "max": 25,
+          "p95": 6,
+          "p99": 15,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "6.000",
+            "p99": "15.000"
+          }
+        },
+        "measurement_sha": "88f4b18be2d3517dc105f3a89cb656f42c1fd711657f384afbc05f13e861e04a",
+        "source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+        "scope": {
+          "measurement_partition": "calibration",
+          "measurement_rows": 3300,
+          "application_partitions": [
+            "calibration",
+            "test"
+          ],
+          "offline_only": true
+        },
+        "sources": {
+          "calculation_and_relationship_key_columns": [
+            [
+              "TASK",
+              "wms_delay"
+            ]
+          ],
+          "output_row_identifiers": [
+            [
+              "TASK",
+              "ROW_ID"
+            ]
+          ]
+        },
+        "constraints": [],
+        "baseline": {
+          "id": "baseline_faac571c2448714b771127",
+          "state": "verified",
+          "value": 6.0,
+          "value_exact": "6.0",
+          "operator": "gt",
+          "quantile": 0.95,
+          "unit": "second",
+          "reference_split": "train",
+          "reference_valid_n": 8250,
+          "minimum_n": 20,
+          "reference_feature_definition_sha": "6f4e02519283ee9f4e91859de36253340e4884aa73c425b3c50d4bfed0649cf3",
+          "semantic_definition_sha": "e88b5fb714afcd7dbb5e9f7b31b38aa6c0411dbaa8a4748d29a8b50fdad893b2",
+          "application_semantic_definition_sha": "e88b5fb714afcd7dbb5e9f7b31b38aa6c0411dbaa8a4748d29a8b50fdad893b2",
+          "reference_source_version": "3be03c714a5f66980339f64959c8a4a5667c2d28918157e550128ba63deda9c5",
+          "reference_manifest": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/train/features.npz",
+            "sha256": "436772e7d8cc04126b0ab5f66e66d814ee9be1c09e73267ef72c7185a59620f1"
+          },
+          "reference_period": {
+            "partition": "original frozen TRAIN whole DAG executions"
+          },
+          "application_period": {
+            "partitions": [
+              "calibration",
+              "test"
+            ],
+            "not_chronological": true
+          },
+          "reference_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "application_population": {
+            "table": "TASK",
+            "filter": null
+          },
+          "group": null,
+          "method": "Original frozen train p95; native threshold represented as float64 canonical decimal.",
+          "missing": "Exclude missing reference values; preserve unavailable numeric comparisons.",
+          "refresh": "No recalibration.",
+          "expiry": "End of this frozen offline evaluation.",
+          "scope": "Label-assisted uninjected-execution TRAIN reference, inherited unchanged from the official comparison split.",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+          },
+          "sha256": "eb00d377521bc04222de6e04b14b63fc430c4368ae4b43a6ceb789d32500250b"
+        },
+        "availability": "offline_captured_task_scope",
+        "confirmed_source_context": [
+          {
+            "table": "TASK",
+            "column": "wms_delay",
+            "type": "number",
+            "unit": "second",
+            "nullable": true
+          }
+        ],
+        "authority_ref": {
+          "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/wms_delay/feature_bundle.json",
+          "sha256": "3299870410cfff1e6367b44bbda1945c1a3e908731f21d24135aad1cb6da2aff"
+        },
+        "reference_policy": {
+          "minimum_n": 20,
+          "normality_required": false,
+          "independence_required": false,
+          "operational_normal_baseline": false
+        },
+        "range_proof": {
+          "lower": null,
+          "upper": null,
+          "proof": "No universal numeric bound or business contract is confirmed; observed maxima are not universal constraints."
+        },
+        "verified_relationship_bounds": {},
+        "observed_diagnostic_contract": {
+          "condition": {
+            "op": "is_missing"
+          },
+          "meaning": "Computed feature unavailable; omission or zero denominator is not a confirmed injected fault."
+        },
+        "requests": [
+          "hr",
+          "observed",
+          "baseline"
+        ],
+        "physical_lineage": {
+          "calculation_definition": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/generation/predict_future_sales/wms_delay/feature_bundle.json",
+            "sha256": "3299870410cfff1e6367b44bbda1945c1a3e908731f21d24135aad1cb6da2aff"
+          },
+          "immutable_definition_sha": "6f4e02519283ee9f4e91859de36253340e4884aa73c425b3c50d4bfed0649cf3",
+          "test_binding": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/test_binding.json",
+            "sha256": "ba7011ad989bfe36289db80a0b42a84cac64aebfd4937de286b4bf6cb84b4df7"
+          },
+          "measurement_matrix": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/measurements/calibration/features.npz",
+            "sha256": "550ac0a848e2b245f56cf582ee32f81693fdfeec93f46185d01da13b5299bd4d"
+          },
+          "native_threshold_source": {
+            "path": "/home/msko20702/#종합설계/data/data/eda/flowbench_predict_future_sales_eval/20261113T153202_272793+0900/evaluation/B/predict_future_sales/frozen_rules.json",
+            "sha256": "fa4c4a6266d5d442220daea925ab8e42624d02d9c9a027727a399360e1315ec0"
+          },
+          "binding_sha": "27bc623899d10836d81e482d60c2492c00a28f0a27b20ea5d35aa9bae68e8129"
+        }
+      },
+      "input_sha": "14a2bf00e78fc034efd4ac2c92f0e5cfa8e16e46ae5c3076f9ede8aa8d72a067",
+      "prediction": {
+        "v": "2",
+        "feature": "fd_d7730c18328bde7dc6495bc4",
+        "sha": "6f4e02519283ee9f4e91859de36253340e4884aa73c425b3c50d4bfed0649cf3",
+        "decisions": [
+          {
+            "request": "hr",
+            "role": "HR",
+            "state": "no_applicable",
+            "basis": "none",
+            "condition": null,
+            "evidence": [],
+            "needed": [],
+            "reason": "Inspected exact feature and dictionary constraints; no raw NOT NULL indicator or confirmed business contract applies. Mandatory-conservation and extra normality policy are not used."
+          },
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_2f343af25580f9b5741e91"
+            ],
+            "needed": [],
+            "reason": "Inspected wms_delay. Preserve the supplied typed condition with 3300 usable observations; activation0 still means observed evidence. This narrow diagnosis does not require confirmed injection or business necessity."
+          },
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 6.0
+            },
+            "evidence": [
+              "m_2f343af25580f9b5741e91",
+              "baseline_faac571c2448714b771127"
+            ],
+            "needed": [],
+            "reason": "Strict gt against code-computed train-only p95 6.0 second with supplied period/population/missing/refresh policy. Offline scope, no extra normality/independence/online-necessity policy."
+          }
+        ]
+      },
+      "original_record_sha256": "1184c8d021009336dd9458dc4923fa0b8ecb308745b899834f1e2174623dd620",
+      "original_errors": [],
+      "new_generation_in_publication": false
+    }
+  ]
+}

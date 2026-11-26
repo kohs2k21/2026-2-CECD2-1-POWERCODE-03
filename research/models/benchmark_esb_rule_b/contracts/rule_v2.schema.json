@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Original-teacher B native Rule-v2",
+  "type": "object",
+  "properties": {
+    "v": {
+      "const": "2"
+    },
+    "feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "enum": [
+              "hr",
+              "observed",
+              "baseline"
+            ]
+          },
+          "role": {
+            "enum": [
+              "HR",
+              "SR"
+            ]
+          },
+          "state": {
+            "enum": [
+              "proposed",
+              "deferred",
+              "request_evidence",
+              "no_applicable"
+            ]
+          },
+          "basis": {
+            "enum": [
+              "ddl_not_null",
+              "observed_diagnostic",
+              "reference_p95",
+              "none",
+              "insufficient"
+            ]
+          },
+          "condition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "is_missing"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "enum": [
+                      "eq",
+                      "lt",
+                      "gt"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "boolean"
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "needed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "request",
+          "role",
+          "state",
+          "basis",
+          "condition",
+          "evidence",
+          "needed",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "v",
+    "feature",
+    "sha",
+    "decisions"
+  ],
+  "additionalProperties": false
+}

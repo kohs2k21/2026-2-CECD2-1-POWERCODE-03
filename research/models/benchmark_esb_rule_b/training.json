@@ -1,0 +1,71 @@
+{
+  "base": {
+    "repo_id": "Qwen/Qwen3.6-27B",
+    "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9"
+  },
+  "source_stage": {
+    "datasets": [
+      "FlowBench 1000Genome",
+      "FlowBench Montage"
+    ],
+    "teacher": "Label-validated rule specifications; not raw-row binary labels",
+    "training_examples": 88,
+    "validation_examples": 24,
+    "adapter_continuation": "Benchmark-selected epoch2 adapter; no optimizer state carried into ESB"
+  },
+  "esb_stage": {
+    "teacher": "Original AI-authored, code-validated silver Rule specifications; not expert-confirmed incidents",
+    "train": 452,
+    "validation": 298,
+    "test": 522,
+    "epochs": 2,
+    "optimizer_steps": 226,
+    "configuration": {
+      "task": "rule",
+      "rank": 8,
+      "alpha": 16,
+      "dropout": 0.05,
+      "batch": 1,
+      "accumulation": 4,
+      "learning_rate": 0.0001,
+      "seed": 42,
+      "default_epochs": 2,
+      "maximum_epochs": 3,
+      "maximum_length": 4096,
+      "free_discovery_loss_weight": 1,
+      "gradient_clip": 1.0,
+      "scheduler": "constant",
+      "quantization": "NF4 double quantization",
+      "compute": "bf16",
+      "gradient_checkpointing": "non-reentrant",
+      "input_loss": "excluded",
+      "answer_loss": "assistant+EOS",
+      "padding": "none(batch1)",
+      "truncation": false,
+      "fresh_original_base": false,
+      "vision_frozen": true,
+      "optimizer": "AdamW(weight_decay=0)",
+      "third_epoch_policy": "only when epoch2 validation token-weighted NLL exceeds epoch1 by at least 1%",
+      "selection": "minimum full-validation answer-token NLL; quality evaluation reported separately",
+      "generation": {
+        "greedy": true,
+        "thinking": false,
+        "max_new_tokens": 1024,
+        "grammar": false,
+        "maximum_repairs": 1
+      }
+    },
+    "selection": {
+      "epoch": 2,
+      "criterion": "minimum full-validation answer-token NLL; quality evaluation reported separately",
+      "validation_NLL": 0.002853262234753365
+    }
+  },
+  "comparison": {
+    "A": "Original Qwen -> original ESB SFT",
+    "B": "Benchmark LoRA -> same original ESB SFT",
+    "only_initial_adapter_differs": true,
+    "Feature_LLM_retrained": false
+  },
+  "new_training_for_publication": false
+}

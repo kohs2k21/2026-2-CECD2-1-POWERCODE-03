@@ -1,0 +1,51 @@
+{
+  "created_kst": "2026-11-26T20:47:44.508026+09:00",
+  "issue": 251,
+  "branch": "fix/251-rule-supervised-fix",
+  "base_dev_commit": "7c6a038ee1fee7d664b04af4faea957516766e4d",
+  "scope": "research-only additive B provider; native validator and baseline draft bridge",
+  "checks": {
+    "delivery_tests": {
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.4027179232798517,
+      "tests": 26
+    },
+    "existing_baseline_tests": {
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.6712190178222954,
+      "tests": 14
+    },
+    "public_response_replay": {
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.28207656275480986,
+      "tests": null
+    },
+    "esb_saved_response_replay": {
+      "total": 522,
+      "original_passed": 510,
+      "delivery_passed": 510,
+      "failed_preserved": 12,
+      "acceptance_decisions_identical": true,
+      "baseline_draft_instances": 214,
+      "not_distinct_operating_rules": true,
+      "no_customer_inputs_or_responses_exported": true,
+      "original_teacher_test_sha256": "784c7fe21e9086d1cdd879c3928af191d06f2141c5f23ac7c8d7d693f8bd3ed5"
+    },
+    "package_integrity": {
+      "passed": true,
+      "pinned_files": 18,
+      "manifest_sha256": "075f7218d54da8e3c9e00d83d7d7fb95c054453363297445d20f99cac5b7d5c5"
+    }
+  },
+  "new_GPU_generation": 0,
+  "new_SFT": 0,
+  "new_ML_fit": 0,
+  "new_packages_installed": 0,
+  "service_E2E": "not_run",
+  "remote_CI": "not_run_before_push",
+  "raw_customer_rows_included": false,
+  "source_adapter_sha256": "36589b07d9fb8ee3b955598ea652a08de1f72243ceb066fd793c62e39692c11e"
+}

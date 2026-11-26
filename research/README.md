@@ -2,6 +2,7 @@
 
 `research/` contains exploratory notebooks, scenarios, model experiments, and evaluation notes. It is not a runtime dependency of `server/`.
 
+- [벤치마크 → ESB Rule B와 baseline 초안 연결 (#251)](models/benchmark_esb_rule_b/README.md): 선택 LoRA·native Rule-v2 입력/검증/추론, 기존 수치 SR 초안 DTO 연결, 공개 실제 응답 CPU 재생. 기존 provider·Feature·AE·ML과 활성 규칙 보존, 서버 전환은 별도 연결.
 - [최종 수치·논리 SR + ML 연구 모델 1.1.0 (#142)](models/hybrid_sr_ml/README.md): ESB 수치 SR42·논리 SR3·ML9개, 분모0 실제 대체 평가와 FlowBench 전용 프로필. 동결 모델·실행 CLI·공개 재현 검사·집계 평가 포함.
 - [이전 선택 구성: 공통 피처 Trainer·Detector (#140)](integration/feature_rule_ml/shared42/README.md): 이전 검증 피처65개·HR10/관측SR58/수치SR42·T/P/M42개 ML 입력과 모델9개. 새 CSV 계산, 명시적 학습·저장, 동결 탐지·거래별 단독/공통 경고 집계.
 - [별도 Process 행 ML과 우리 HR/SR 연결 (#95·#136)](integration/feature_rule_ml/PROCESS_EVENT_INTEGRATION.md): PR #98의 동결 모델 3종을 원본 그대로 사용하며, 동일 Process 원천·행 키 검증 및 별도 Python 3.12 추론 프로세스로 결합.

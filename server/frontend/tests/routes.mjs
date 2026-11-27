@@ -103,8 +103,12 @@ const { AuthSessionProvider } = await import("../src/services/auth/AuthSessionPr
 const { appRoutes } = await import("../src/app/appRoutes.tsx");
 let currentUser;
 const requested = [];
+// 일부 시험(화면 전환·목차 스크롤)이 룰 설정 화면을 그리려고 잠시 넣는 응답(없으면 503).
+let extraFetch = null;
 globalThis.fetch = async (url) => {
   requested.push(String(url));
+  const extra = extraFetch?.(new URL(String(url), "http://local.test"));
+  if (extra) return new Response(JSON.stringify(extra), { headers: { "content-type": "application/json" } });
   if (String(url).endsWith("/api/auth/me"))
     return new Response(JSON.stringify({ user: currentUser }), { headers: { "content-type": "application/json" } });
   return new Response(JSON.stringify({ code: "unavailable" }), { status: 503, headers: { "content-type": "application/json" } });
@@ -346,48 +350,53 @@ for (const [path, search, expected] of legacy) {
   globalThis.document = { documentElement: { scrollHeight: 6000 }, getElementById: (id) => (id === "far" ? target : null), querySelectorAll: () => [] };
   globalThis.getComputedStyle = () => ({ scrollPaddingTop: "100px" });
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  // 실제 시간에 기대지 않게: 조건이 될 때까지(상한 3초) 기다린다.
+  const until = async (check, limit = 3000) => {
+    const end = Date.now() + limit;
+    while (!check() && Date.now() < end) await sleep(5);
+    return check();
+  };
   try {
     const positions = [];
     const stop = scrollToSection("far");
-    for (let i = 0; i < 12; i++) {
-      await sleep(25);
+    await until(() => {
       positions.push(win.scrollY);
-    }
-    assert.ok(positions[0] > 0 && positions[0] < 2900, `moves in steps, not a jump (${positions[0]})`);
+      return Math.round(win.scrollY) === 2900;
+    });
+    assert.ok(positions.some((value) => value > 0 && value < 2800), `moves in steps, not a jump (${positions.slice(0, 5).join(",")})`);
     assert.ok(positions.every((value, index) => index === 0 || value >= positions[index - 1]), "keeps moving forward");
-    await sleep(500);
     assert.equal(Math.round(win.scrollY), 2900, "arrives under the sticky header (scroll-padding-top)");
     // 도착 뒤 위쪽 내용이 늦게 생겨 목적지가 밀리면 맞춘다(settle)
     sectionTop = 3300;
-    await sleep(60);
-    assert.equal(Math.round(win.scrollY), 3200, "follows a late shift after arriving");
+    assert.ok(await until(() => Math.round(win.scrollY) === 3200, 600), "follows a late shift after arriving");
     stop();
     // 사용자 입력이면 그 자리에서 멈춘다
     win.scrollY = 0;
     sectionTop = 3000;
     let cancelled = 0;
     scrollToSection("far", { onCancel: () => (cancelled += 1) });
-    await sleep(60);
+    await until(() => win.scrollY > 0);
     (listeners.get("wheel") ?? []).forEach((fn) => fn());
     const stoppedAt = win.scrollY;
-    await sleep(200);
+    await sleep(100);
     assert.ok(cancelled === 1 && win.scrollY === stoppedAt && stoppedAt < 2900, "wheel stops the scroll where it is");
     // 스크롤 막대 끌기(입력 이벤트 없음): 목적지·문서 높이가 그대로인데 위치만 달라지면 그 자리에서 멈춘다
     win.scrollY = 0;
     cancelled = 0;
     scrollToSection("far", { onCancel: () => (cancelled += 1) });
-    await sleep(60);
-    win.scrollY = 100; // 사용자가 막대를 끌어 위치를 옮김
-    await sleep(60);
-    assert.ok(cancelled === 1 && win.scrollY === 100, "dragging the scrollbar stops the scroll");
+    await until(() => win.scrollY > 0);
+    win.scrollY = 5000; // 사용자가 막대를 끌어 이동 궤적(0~2900)에서 먼 곳으로 옮김
+    assert.ok(await until(() => cancelled === 1, 500), "dragging the scrollbar stops the scroll");
+    await sleep(50);
+    assert.equal(win.scrollY, 5000, "left where the user put it");
     // 문서 높이가 바뀌어 위치가 달라진 것(내용이 줄어 끝에 맞춤 등)은 사용자 이동이 아니다
     win.scrollY = 0;
     cancelled = 0;
     const stopShrink = scrollToSection("far", { onCancel: () => (cancelled += 1) });
-    await sleep(60);
+    await until(() => win.scrollY > 0);
     globalThis.document.documentElement.scrollHeight = 5000;
     win.scrollY += 40;
-    await sleep(500);
+    await until(() => Math.round(win.scrollY) === 2900 || cancelled > 0);
     assert.equal(cancelled, 0, "a page height change is not a user move");
     assert.equal(Math.round(win.scrollY), 2900, "still arrives");
     stopShrink();
@@ -509,23 +518,59 @@ for (const [path, search, expected] of legacy) {
       await act(async () => now.forEach((run) => !run.cancelled && run.onfinish?.()));
     }
   };
-  const fakeCopy = () => {
-    const copy = { style: {}, removed: false, removeAttribute() {}, setAttribute() {}, querySelectorAll: () => [], animate: () => animation("copy-out"),
+  const fakeCopy = (from) => {
+    const copy = { from, style: {}, removed: false, removeAttribute() {}, setAttribute() {}, querySelectorAll: () => [], animate: () => animation("copy-out"),
       remove() { copy.removed = true; seq.push("copy removed"); } };
     return copy;
   };
-  const host = { style: {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), cloneNode: () => fakeCopy(), animate: () => animation("host-in") };
+  // 본문 상자는 PageFade마다 따로(바깥·안쪽 한쪽 투명 잔류가 가려지지 않게)
+  const hosts = [];
+  const makeHost = () => {
+    const host = { style: {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), cloneNode: () => fakeCopy(host), animate: () => animation("host-in") };
+    hosts.push(host);
+    return host;
+  };
+  const transparent = () => hosts.filter((host) => host.style.opacity === "0").length;
   const area = { scrollIntoView: () => seq.push("area") };
   const isWorkArea = (element) => element.type === "div" && element.props.children?.props?.id && ["evaluations-new", "models-train"].includes(element.props.children.props.id);
-  const nodeMock = { createNodeMock: (element) => (element.type === "div" && element.props["data-page-fade"] !== undefined ? host : isWorkArea(element) ? area : null) };
+  const nodeMock = { createNodeMock: (element) => (element.type === "div" && element.props["data-page-fade"] !== undefined ? makeHost() : isWorkArea(element) ? area : null) };
+  // 목차 영역(룰 설정 화면의 SectionCard id): 지금 그려진 화면(viewing)에 그 id가 있으면 가짜 요소. 문서 기준 위치 = 순서 × 300, 화면 기준 top = 문서 기준 − scrollY
+  const sectionIds = ["rules-hard", "rules-soft", "rules-relation", "rules-protocols", "rules-response-codes", "rules-candidates", "rules-history"];
+  let viewing = null;
+  const sections = new Map(sectionIds.map((id) => [id, { id, contains: () => false, compareDocumentPosition: () => 0,
+    getBoundingClientRect: () => ({ top: sectionIds.indexOf(id) * 300 - globalThis.window.scrollY, height: 280 }) }]));
+  const sectionById = (id) => (viewing && sections.has(id) && viewing.root.findAll((node) => node.type === "div" && node.props.id === id).length ? sections.get(id) : null);
   globalThis.Element = class {};
   globalThis.Element.prototype.animate = () => animation("element");
-  globalThis.document = { documentElement: { scrollHeight: 2000 }, head: { appendChild() {} }, createElement: () => ({}),
-    body: { appendChild: (node) => { copies.push(node); seq.push("copy added"); } }, getElementById: () => null, querySelectorAll: () => [] };
+  globalThis.document = { documentElement: { scrollHeight: 2600 }, head: { appendChild() {} }, createElement: () => ({}),
+    body: { appendChild: (node) => { copies.push(node); seq.push("copy added"); } }, getElementById: (id) => sectionById(id), querySelectorAll: () => [] };
+  // 창 스크롤: 위치를 바꾸면 scroll 이벤트를 다음 차례에 보낸다(브라우저처럼)
+  const winListeners = new Map();
+  const savedWin = { addEventListener: globalThis.window.addEventListener, removeEventListener: globalThis.window.removeEventListener, scrollY: globalThis.window.scrollY, innerHeight: globalThis.window.innerHeight };
+  globalThis.window.addEventListener = (name, fn) => winListeners.set(name, [...(winListeners.get(name) ?? []), fn]);
+  globalThis.window.removeEventListener = (name, fn) => winListeners.set(name, (winListeners.get(name) ?? []).filter((item) => item !== fn));
+  const fire = (name) => (winListeners.get(name) ?? []).slice().forEach((fn) => fn());
+  globalThis.window.scrollY = 0;
+  globalThis.window.innerHeight = 500;
   globalThis.getComputedStyle = () => ({ opacity: "1", scrollPaddingTop: "0px" });
   globalThis.window.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 16);
   globalThis.window.cancelAnimationFrame = (id) => clearTimeout(id);
-  globalThis.window.scrollTo = (_x, y) => seq.push(`top ${y}`);
+  globalThis.window.scrollTo = (_x, y) => {
+    seq.push(y === 0 ? "top 0" : "scroll");
+    globalThis.window.scrollY = y;
+    setTimeout(() => fire("scroll"), 0);
+  };
+  // 룰 설정 화면 응답(tests/rules-page.mjs 모양을 줄임): 목차 영역이 그려지게
+  const ruleSetFetch = (target) => {
+    const actor = { actorId: "1", displayName: "admin@example.test" };
+    if (target.pathname === "/api/rule-set") return { contractVersion: "rule-set-v1", revision: 12, contentHash: "a".repeat(64), contentHashVersion: 2, savedAt: "2026-11-02T08:12:33Z",
+      savedBy: actor, restoredFromRevision: null, catalogVersion: "method-catalog-v2", counts: { hardEnabled: 1, hardTotal: 1, softEnabled: 0, softTotal: 0 },
+      hardRules: [{ id: "hard:negative-duration", methodVersion: "negative-duration-v1", displayName: "시작 시각이 종료 시각보다 늦음", conditionText: "START_TIME > END_TIME", severity: "critical", enabled: true, editable: ["enabled"] }],
+      softRules: [] };
+    if (target.pathname === "/api/rule-set/history") return { items: [], pagination: { limit: 50, hasMore: false, nextCursor: null } };
+    if (target.pathname === "/api/jobs/capabilities") return { methodCatalog: { softRuleFields: [] } };
+    return null;
+  };
   const settle = async () => {
     for (let i = 0; i < 8; i++) await tick();
     await finishAll();
@@ -550,12 +595,12 @@ for (const [path, search, expected] of legacy) {
       afterPageSwap(() => seq.push("after swap"));
       await Promise.resolve(); // 대기 판단(마이크로태스크)이 먼저 돈다
       assert.equal(copies.length, 1, "push navigation fades through a static copy");
-      assert.equal(host.style.opacity, "0", "new screen is transparent while the copy fades");
+      assert.equal(transparent(), 1, "new screen is transparent while the copy fades");
       assert.equal(app.h1().includes("머신러닝 모델"), false, "the old screen is not mounted while its copy fades");
       await finishAll();
       await act(async () => Promise.resolve());
       assert.equal(copies[0].removed, true, "the copy is removed after fading");
-      assert.equal(host.style.opacity, "", "the new screen is no longer transparent");
+      assert.equal(transparent(), 0, "the new screen is no longer transparent");
       assert.ok(seq.indexOf("copy removed") >= 0 && seq.indexOf("copy removed") < seq.indexOf("after swap"), `waiting work runs after the copy is gone: ${seq.join(" > ")}`);
       assert.ok(seq.indexOf("after swap") < seq.indexOf("animate host-in"), `then the new screen fades in: ${seq.join(" > ")}`);
       assert.equal(location(app.router), "/operations", "nothing from the old screen rewrites the new address");
@@ -607,6 +652,84 @@ for (const [path, search, expected] of legacy) {
       });
       await settle();
       assert.ok(seq.includes("top 0"), `push then replace still starts at the top: ${seq.join(" > ")}`);
+      await app.cleanup();
+    }
+    // 7) 하위 화면에서 스크롤된 채 목차로 영역 이동(경로가 바뀜 = 본문 전환): 맨 위 올리기는 바로, 그 scroll 이벤트가 사본이 지워지기 전에 와도
+    //    목차 고정이 풀리지 않는다. 사본이 지워진 뒤 부드러운 스크롤이 시작되고 도착할 때까지 누른 항목이 현재 표시.
+    {
+      extraFetch = ruleSetFetch;
+      const app = await mount("/detection/rules/candidates", "admin", nodeMock);
+      viewing = app.renderer;
+      await settle();
+      globalThis.window.scrollY = 400;
+      seq.length = 0;
+      copies.length = 0;
+      const current = () => app.renderer.root.findAll((n) => n.type === "a" && n.props["aria-current"] === "location").map((n) => n.props.href);
+      await act(async () => app.router.navigate("/detection/rules#rules-history"));
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 60))); // 맨 위 올리기의 scroll 이벤트가 이 사이에 온다
+      assert.equal(globalThis.window.scrollY, 0, "top first");
+      assert.equal(copies.length === 1 && copies[0].removed, false, "copy still fading");
+      assert.deepEqual(current(), ["/detection/rules#rules-history"], "pinned while waiting for the copy");
+      assert.equal(seq.includes("scroll"), false, "the smooth scroll waits for the copy");
+      await finishAll();
+      for (let i = 0; i < 200 && !seq.includes("scroll"); i++) await tick();
+      assert.ok(seq.indexOf("copy removed") >= 0 && seq.indexOf("copy removed") < seq.indexOf("scroll"), `smooth scroll starts after the copy is gone: ${seq.join(" > ")}`);
+      const goal = Math.min(6 * 300, 2600 - 500);
+      for (let i = 0; i < 400 && Math.abs(globalThis.window.scrollY - goal) > 1; i++) {
+        await tick();
+        assert.deepEqual(current(), ["/detection/rules#rules-history"], `pinned on the way (scrollY ${Math.round(globalThis.window.scrollY)})`);
+      }
+      assert.ok(Math.abs(globalThis.window.scrollY - goal) <= 1, `arrives (${globalThis.window.scrollY})`);
+      assert.deepEqual(current(), ["/detection/rules#rules-history"], "pinned at the end");
+      await app.cleanup();
+      extraFetch = null;
+      viewing = null;
+    }
+    // 8) 같은 커밋의 바깥 전환(운영 현황 → 탐지 설정 목차 주소): 부드러운 스크롤은 바깥 사본이 지워진 뒤 시작한다
+    {
+      extraFetch = ruleSetFetch;
+      const app = await mount("/operations", "admin", nodeMock);
+      viewing = app.renderer;
+      await settle();
+      globalThis.window.scrollY = 0;
+      seq.length = 0;
+      await act(async () => app.router.navigate("/detection/rules#rules-history"));
+      // 대상 영역이 생기고(조회 뒤) 영역 찾기 간격(100ms)이 지나도록 기다린다 — 기다리지 않는 구현이면 이 사이에 움직인다
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+      assert.ok(viewing.root.findAll((node) => node.type === "div" && node.props.id === "rules-history").length > 0, "target section exists");
+      assert.equal(seq.includes("scroll"), false, `waits for the outer copy: ${seq.join(" > ")}`);
+      await finishAll();
+      for (let i = 0; i < 200 && !seq.includes("scroll"); i++) await tick();
+      assert.ok(seq.indexOf("copy removed") >= 0 && seq.indexOf("copy removed") < seq.indexOf("scroll"), `then scrolls: ${seq.join(" > ")}`);
+      await app.cleanup();
+      extraFetch = null;
+      viewing = null;
+    }
+    // 9) 사본이 사라지는 중에 화면 전체가 내려가면(로그아웃·계정 전환 등) 사본을 바로 지운다
+    {
+      const app = await mount("/detection/models?tab=all", "admin", nodeMock);
+      copies.length = 0;
+      await act(async () => app.router.navigate("/operations"));
+      assert.equal(copies.length === 1 && copies[0].removed, false, "copy fading");
+      await app.cleanup();
+      assert.equal(copies[0].removed, true, "removed at once on unmount");
+    }
+    // 10) 안쪽 사본이 사라지는 중에 바깥 전환이 오면 안쪽 사본은 끝까지 사라진 뒤 지워지고, 남은 투명 상자·사본이 없다
+    {
+      const app = await mount("/detection/rules", "admin", nodeMock);
+      await settle();
+      copies.length = 0;
+      await act(async () => app.router.navigate("/detection/models"));
+      assert.equal(copies.length, 1, "inner copy");
+      await act(async () => app.router.navigate("/operations"));
+      assert.equal(copies.length, 2, "outer copy too");
+      assert.equal(copies[0].removed, false, "inner copy keeps fading after its box is gone");
+      await finishAll();
+      await settle();
+      assert.ok(copies.every((copy) => copy.removed), "all copies removed in the end");
+      // 안쪽 상자(탐지 설정 본문)는 바깥 전환으로 내려갔다. 남아 있는 바깥 상자(앱 본문)는 투명이 풀려야 한다.
+      assert.notEqual(copies[1].from, copies[0].from, "inner and outer boxes are separate");
+      assert.equal(copies[1].from.style.opacity, "", "the outer box is visible again");
       await app.cleanup();
     }
     // 6) 이전 화면에서 나오는 이동이 구조적으로 없다: 키가 바뀐 커밋에서 이전 화면이 내려가고, 그 뒤 이전 화면 effect는 다시 돌지 않는다
@@ -663,6 +786,10 @@ for (const [path, search, expected] of legacy) {
     globalThis.window.requestAnimationFrame = saved.raf;
     globalThis.window.cancelAnimationFrame = saved.caf;
     globalThis.window.scrollTo = saved.scrollTo;
+    globalThis.window.addEventListener = savedWin.addEventListener;
+    globalThis.window.removeEventListener = savedWin.removeEventListener;
+    globalThis.window.scrollY = savedWin.scrollY;
+    globalThis.window.innerHeight = savedWin.innerHeight;
     if (!saved.raf) delete globalThis.window.requestAnimationFrame;
     if (!saved.caf) delete globalThis.window.cancelAnimationFrame;
     if (!saved.scrollTo) delete globalThis.window.scrollTo;

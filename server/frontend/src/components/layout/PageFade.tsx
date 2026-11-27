@@ -17,8 +17,11 @@ import { MOTION_EASE, MOTION_MS } from "@/lib/motion";
  * - 주소 교체(replace) 이동(옛 주소 넘김·정규화·작업 ID → 판정 ID 등)·처음 그릴 때·동작 줄이기·DOM이 없는 환경은 효과 없이 바로 바꾼다
  * - afterPageSwap: 같은 커밋에 시작된 전환의 사본이 사라진 뒤 실행(보이는 이동인 목차 부드러운 스크롤용). 맨 위로 올리기는 미루지 않는다 —
  *   사본은 화면 기준 고정이라 문서가 스크롤돼도 튀지 않고, 새 화면의 작업 영역 스크롤이 그 뒤에 이긴다
- * - 안쪽 전환이 진행 중일 때 바깥 전환이 오면 안쪽 사본은 지우지 않고 끝까지 사라지게 둔다
+ * - 안쪽 전환이 진행 중일 때 바깥 전환이 오면 안쪽 사본은 지우지 않고 끝까지 사라지게 둔다. 그 밖의 이유로 내려가면(로그아웃·계정 전환 등)
+ *   사본을 바로 지운다(로그아웃 뒤 이전 화면이 잠깐이라도 보이지 않게)
  */
+// 이 커밋에서 사본을 뜬(바깥) 전환 수: 사본 뜨기(DOM 바꾸기 전) ~ 커밋 단계 사이에 내려가는 안쪽 상자가 "바깥 전환 때문에 내려감"을 안다.
+let snapshotsInCommit = 0;
 const COPY = "data-page-fade-copy";
 // 사본 안의 애니메이션·전환 정지(문서에 한 번 넣는다).
 const ensureCopyStyle = () => {
@@ -79,7 +82,10 @@ class SnapshotFade extends Component<Props> {
     const host = this.host.current;
     if (!host) return null;
     // 사본이 아직 사라지는 중이면 보이는 것은 그 사본이다 — 새로 뜨지 않고 이어서 사라지게 한다.
-    if (this.overlay) return { overlay: this.overlay, opacity: Number(getComputedStyle(this.overlay).opacity) || 0 };
+    if (this.overlay) {
+      snapshotsInCommit += 1;
+      return { overlay: this.overlay, opacity: Number(getComputedStyle(this.overlay).opacity) || 0 };
+    }
     const rect = host.getBoundingClientRect();
     const opacity = this.fadeIn ? Number(getComputedStyle(host).opacity) || 0 : 1;
     const overlay = host.cloneNode(true) as HTMLElement;
@@ -93,6 +99,7 @@ class SnapshotFade extends Component<Props> {
     overlay.setAttribute("aria-hidden", "true");
     overlay.setAttribute("inert", "");
     overlay.setAttribute(COPY, "");
+    snapshotsInCommit += 1;
     Object.assign(overlay.style, {
       position: "fixed",
       left: `${rect.left}px`,
@@ -109,6 +116,7 @@ class SnapshotFade extends Component<Props> {
 
   componentDidUpdate(_prev: Props, _state: unknown, snapshot: Snapshot) {
     const host = this.host.current;
+    if (snapshot) snapshotsInCommit = Math.max(0, snapshotsInCommit - 1);
     if (!snapshot || !host) return;
     // 커밋 단계(그리기 전): 새 화면을 투명하게 두고 사본을 겹친다 — 새 화면이 한 프레임도 먼저 비치지 않는다.
     this.fadeIn?.cancel();
@@ -143,11 +151,14 @@ class SnapshotFade extends Component<Props> {
 
   componentWillUnmount() {
     this.fadeIn?.cancel();
-    // 사라지는 중인 사본은 끝까지 사라지게 둔다(바깥 전환으로 이 상자가 내려가도 안쪽 사본이 갑자기 꺼지지 않게).
+    // 바깥 전환으로 내려가면 사라지는 중인 사본은 끝까지 사라지게 둔다(안쪽 사본이 갑자기 꺼지지 않게). 그 밖(로그아웃 등)은 바로 지운다.
     const overlay = this.overlay;
     const fadeOut = this.fadeOut;
-    if (overlay && fadeOut) fadeOut.onfinish = () => overlay.remove();
-    else overlay?.remove();
+    if (overlay && fadeOut && snapshotsInCommit > 0) fadeOut.onfinish = () => overlay.remove();
+    else {
+      fadeOut?.cancel();
+      overlay?.remove();
+    }
     this.overlay = null;
     this.fadeOut = null;
     this.done();

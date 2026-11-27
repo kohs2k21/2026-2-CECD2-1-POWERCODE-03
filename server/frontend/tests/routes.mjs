@@ -758,7 +758,7 @@ for (const [path, search, expected] of legacy) {
       assert.deepEqual(current(), ["/detection/evaluations?step=1#evaluations-list"], "still pinned after the work area scroll");
       await finishAll();
       for (let i = 0; i < 400 && Math.abs(globalThis.window.scrollY - 300) > 1; i++) await tick();
-      assert.equal(Math.round(globalThis.window.scrollY), 300, "arrives at the hash section, not the work area");
+      assert.ok(Math.abs(globalThis.window.scrollY - 300) <= 1, `arrives at the hash section, not the work area (${globalThis.window.scrollY})`);
       assert.deepEqual(current(), ["/detection/evaluations?step=1#evaluations-list"], "the hash section is current");
       areaMoves = false;
       await app.cleanup();

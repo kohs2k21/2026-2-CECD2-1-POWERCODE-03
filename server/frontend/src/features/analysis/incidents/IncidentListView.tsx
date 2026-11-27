@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { IconArrowsMaximize, IconArrowsMinimize, IconChevronRight, IconChevronsLeft } from "@tabler/icons-react";
+import { IconChevronRight, IconChevronsLeft } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import {
   timeBasisTitle,
 } from "./incidentLabels";
 import { IncidentTimeline } from "./IncidentTimeline";
+import { PendingRegion, TopProgress, useListPending } from "@/components/ui/pending";
 
 type Query<T> = { data: T | undefined; isPending: boolean; isError: boolean; isPlaceholderData: boolean; error: unknown; refetch: () => unknown };
 
@@ -64,8 +65,6 @@ export const IncidentListView = ({
   query,
   detailHref,
   onChange,
-  isWide,
-  onToggleWide,
 }: {
   period: IncidentPeriod;
   cursor: string | null;
@@ -73,10 +72,10 @@ export const IncidentListView = ({
   query: Query<IncidentList>;
   detailHref: (id: string) => string;
   onChange: (next: { period?: IncidentPeriod; cursor?: string | null; all?: boolean }) => void;
-  isWide: boolean;
-  onToggleWide: (value: boolean) => void;
 }) => {
   const data = query.data;
+  // 다시 조회 중 표시(ui.md 로딩 표시): 기간·모두 보기가 바뀌면 뼈대, 쪽 넘김(커서)이면 이전 행 흐리게 + 진행 막대.
+  const pending = useListPending({ pending: query.isPlaceholderData, condition: `${period}|${all}` });
   let body: ReactNode;
   if (query.isPending && !data) body = <LoadingState />;
   else if (!data) body = <ErrorState title={incidentErrorTitle(query.error, "사건 목록")} onRetry={() => void query.refetch()} />;
@@ -157,21 +156,12 @@ export const IncidentListView = ({
     );
 
   return (
-    <Card className="gap-4">
+    <Card className="relative gap-4">
+      <TopProgress show={pending.show && pending.kind === "dim"} />
       <CardContent className="grid gap-4">
-        <header className="flex items-start justify-between gap-3">
-          <div className="grid gap-1">
-            <h2 className="text-section-title">사건</h2>
-            <CardDescription>{INCIDENT_CRITERIA_NOTE}</CardDescription>
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onToggleWide(!isWide)}
-            aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
-          >
-            {isWide ? <IconArrowsMinimize aria-hidden="true" /> : <IconArrowsMaximize aria-hidden="true" />}
-          </Button>
+        <header className="grid gap-1">
+          <h2 className="text-section-title">사건</h2>
+          <CardDescription>{INCIDENT_CRITERIA_NOTE}</CardDescription>
         </header>
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground" aria-live="polite">
           <span id="incident-period-label">기간</span>
@@ -200,9 +190,9 @@ export const IncidentListView = ({
         {query.isError && data && (
           <ErrorState title={`${incidentErrorTitle(query.error, "사건 목록")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
         )}
-        <section className="grid gap-4" aria-label="사건 목록" aria-busy={query.isPlaceholderData || undefined}>
+        <PendingRegion show={pending.show} kind={pending.kind} pending={pending.pending} className="grid gap-4" label="사건 목록">
           {body}
-        </section>
+        </PendingRegion>
         {data && (cursor || data.nextCursor) && (
           <nav aria-label="페이지" className="flex items-center justify-end gap-1 text-sm">
             <Button variant="ghost" size="sm" disabled={!cursor} onClick={() => onChange({ cursor: null })}>

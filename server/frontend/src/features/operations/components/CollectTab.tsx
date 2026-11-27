@@ -2,6 +2,7 @@ import { Suspense, lazy, useState, type ReactNode } from "react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { DelayedLoadingState } from "@/components/ui/pending";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -225,7 +226,7 @@ const CollectCards = ({ sourceId }: { sourceId: string }) => {
       <SectionCard title="시간별 트랜잭션 양">
         <Reading query={collection} what="수집 현황">
           {(data) => (
-            <Suspense fallback={<LoadingState />}>
+            <Suspense fallback={<DelayedLoadingState />}>
               <HourlyTransactionsChart items={data.hourly} />
             </Suspense>
           )}

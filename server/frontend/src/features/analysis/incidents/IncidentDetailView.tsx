@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { IconArrowLeft, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { paths } from "@/app/routes";
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { SectionCard } from "@/components/layout/SectionCard";
@@ -205,17 +205,22 @@ export const IncidentDetailView = ({
   query,
   backHref,
   backLabel = "사건 목록",
-  isWide,
-  onToggleWide,
 }: {
   query: Query<IncidentDetail>;
   backHref: string;
   /** 돌아가기 이름표: 사건 목록 = "사건 목록", 알림 페이지에서 온 경우 = "알림으로". */
   backLabel?: string;
-  isWide: boolean;
-  onToggleWide: (value: boolean) => void;
 }) => {
   const detail = query.data;
+  // 돌아가기(사용자 11/28): 사건을 보이면 첫 카드(사건 요약) 제목 줄 오른쪽, 불러오는 중·실패면 본문 위 한 줄.
+  const back = (
+    <Button asChild variant="ghost" size="sm">
+      <Link to={backHref}>
+        <IconArrowLeft aria-hidden="true" />
+        {backLabel}
+      </Link>
+    </Button>
+  );
   let body: ReactNode;
   if (query.isPending && !detail) body = <LoadingState />;
   else if (!detail) body = <ErrorState title={incidentErrorTitle(query.error, "사건")} onRetry={() => void query.refetch()} />;
@@ -228,6 +233,7 @@ export const IncidentDetailView = ({
           description={INCIDENT_CRITERIA_NOTE}
           aria-label="사건 요약"
           action={[
+            <span key="back" className="contents">{back}</span>,
             ...detail.flags.map((flag) => (
               <Badge key={flag} variant="warning" title={incidentFlagTitles[flag]}>
                 {incidentFlagLabels[flag]}
@@ -319,23 +325,7 @@ export const IncidentDetailView = ({
   }
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <Button asChild variant="ghost" size="sm">
-          <Link to={backHref}>
-            <IconArrowLeft aria-hidden="true" />
-            {backLabel}
-          </Link>
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="max-md:hidden"
-          onClick={() => onToggleWide(!isWide)}
-          aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
-        >
-          {isWide ? <IconArrowsMinimize aria-hidden="true" /> : <IconArrowsMaximize aria-hidden="true" />}
-        </Button>
-      </div>
+      {!detail && <div className="flex flex-wrap items-center gap-2 text-sm">{back}</div>}
       {body}
     </div>
   );

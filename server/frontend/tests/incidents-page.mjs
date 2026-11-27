@@ -231,6 +231,10 @@ const byData = (app, key) => app.renderer.root.findAll((node) => node.props?.[ke
   assert.equal(link.props.href, "/analysis/d/d-1");
   const back = app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "사건 목록")[0];
   assert.equal(back.props.href, "/analysis/incidents?period=30d");
+  // 돌아가기는 첫 카드(사건 요약) 제목 줄 오른쪽(사용자 11/28 — 본문 위 빈 첫 줄 없음)
+  let slot = back.parent;
+  while (slot && !(slot.type === "div" && slot.props["data-slot"])) slot = slot.parent;
+  assert.equal(slot.props["data-slot"], "card-action", "back link on the first card's title row");
   const heads = app.renderer.root.findAll((n) => n.type === "table" && n.props["aria-label"] === "거래별 구성원 표")[0].findAllByType("th").map((th) => text(th.children));
   assert.deepEqual(heads, ["거래 ID", "인터페이스", "발생 시각", "판정(단계)", "상태"]);
   assert.ok(app.shown().includes("거래 2건 · 첫 발생 시각 순"));
@@ -326,13 +330,14 @@ const byData = (app, key) => app.renderer.root.findAll((node) => node.props?.[ke
   await wait(() => app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "알림으로")[0]?.props.href === "/notifications?view=all", "alerts back link");
   await act(async () => app.router.navigate("/analysis/d/d-4", { state: { returnTo: "/notificationsx" } }));
   await wait(() => app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "목록")[0]?.props.href === "/analysis", "look-alike returnTo is ignored");
-  // 상세(판정·사건)는 휴대폰 폭에서 분류 메뉴를 숨긴다(목록은 그대로). 넓게 보기 버튼도 휴대폰에서 숨김.
-  const sideWrap = () => app.renderer.root.findAll((n) => typeof n.props?.className === "string" && n.props.className.includes("overflow-clip") && n.props.className.includes("shrink-0"))[0];
-  assert.ok(sideWrap().props.className.split(" ").includes("max-md:hidden"), "detail hides the category menu on phones");
-  const wide = app.renderer.root.findAll((n) => n.type === "button" && String(n.props["aria-label"] ?? "").includes("화면으로 보기"))[0];
-  assert.ok(wide.props.className.split(" ").includes("max-md:hidden"), "wide toggle is hidden on phones");
+  // 상세(판정·사건)는 휴대폰 폭에서 분류 메뉴를 숨긴다(목록은 그대로). 넓게 보기는 상단 메뉴 버튼 하나(화면 머리에는 없음), 휴대폰에서 숨김.
+  const sideBox = () => { let node = app.renderer.root.findByProps({ id: "analysis-categories" }); while (node && !(node.type === "div" && String(node.props.className).includes("shrink-0"))) node = node.parent; return node; };
+  assert.ok(sideBox().props.className.split(" ").includes("max-md:hidden"), "detail hides the category menu on phones");
+  const wides = app.renderer.root.findAll((n) => n.type === "button" && String(n.props["aria-label"] ?? "").includes("화면으로 보기"));
+  assert.equal(wides.length, 1, "one wide toggle (top menu), none in the detail head");
+  assert.ok(wides[0].props.className.split(" ").includes("max-md:hidden"), "wide toggle is hidden on phones");
   await act(async () => app.router.navigate("/analysis"));
-  await wait(() => !sideWrap().props.className.split(" ").includes("max-md:hidden"), "list keeps the category menu");
+  await wait(() => !sideBox().props.className.split(" ").includes("max-md:hidden"), "list keeps the category menu");
   await app.cleanup();
 }
 // 4b) 알림 페이지에서 연 사건 상세: 뒤 구간 id → 흐름 id로 replace해도 돌아가기 state가 남아 "알림으로".

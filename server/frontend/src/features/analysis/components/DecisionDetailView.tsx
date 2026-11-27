@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { paths } from "@/app/routes";
-import { IconArrowLeft, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -279,8 +279,32 @@ type Query<T> = { data: T | undefined; isPending: boolean; isError: boolean; err
 const EvidenceSummarySection = ({ detail, summary }: { detail: DecisionDetail; summary: EvidenceSummary }) => {
   const { opened, pressed, open } = useEvidenceSummaryOpen(detail.id, detail.polishState);
   const paragraph = useEvidencePolish(detail, pressed);
-  return <EvidenceSummaryCard detail={detail} summary={summary} paragraph={paragraph} opened={opened} onOpen={open} reveal={pressed} focusOnMount={pressed} />;
+  return (
+    <EvidenceSummaryCard
+      detail={detail} summary={summary} paragraph={paragraph} opened={opened} onOpen={open} reveal={pressed} focusOnMount={pressed}
+      fill
+    />
+  );
 };
+
+/**
+ * 판정 상세 위 묶음(analysis-ui.md 판정 상세 배치). DOM·Tab 순서 = 한 열 순서: 근거 요약 → Process Flow → 프로토콜 설명.
+ * 본문 영역 폭(컨테이너 쿼리) ≥ 1200px이면 격자 배치로 Process Flow는 왼쪽 열(3), 근거 요약·프로토콜 설명은 오른쪽 열(2)에 위아래로.
+ * 두 열은 같은 높이 — 짧은 쪽이 늘어난다(칸 안 카드가 칸을 채움: Process Flow는 그래프 상자, 근거 요약은 본문, 둘 다 있을 때 늘어나는 오른쪽 칸은 근거 요약).
+ * 한 열일 때 열 폭은 본문 폭(minmax(0,1fr)) — 넓은 트리가 열을 넓히지 않는다.
+ */
+export const detailPairClass = (summaryAndProtocol: boolean) =>
+  summaryAndProtocol
+    ? "grid grid-cols-[minmax(0,1fr)] gap-4 @min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @min-[1200px]:grid-rows-[1fr_auto]"
+    : "grid grid-cols-[minmax(0,1fr)] gap-4 @min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]";
+const CELL = "flex min-w-0 flex-col [&>*]:flex-1";
+export const detailCellClass = {
+  summary: `${CELL} @min-[1200px]:col-start-2 @min-[1200px]:row-start-1`,
+  flow: `${CELL} @min-[1200px]:col-start-1 @min-[1200px]:row-start-1`,
+  flowTall: `${CELL} @min-[1200px]:col-start-1 @min-[1200px]:row-start-1 @min-[1200px]:row-span-2`,
+  protocol: `${CELL} @min-[1200px]:col-start-2 @min-[1200px]:row-start-1`,
+  protocolBelow: `${CELL} @min-[1200px]:col-start-2 @min-[1200px]:row-start-2`,
+} as const;
 
 export const DecisionDetailView = ({
   id,
@@ -289,8 +313,6 @@ export const DecisionDetailView = ({
   flow,
   backHref,
   backLabel = "목록",
-  isWide,
-  onToggleWide,
 }: {
   id: string;
   query: Query<DecisionDetail>;
@@ -299,8 +321,6 @@ export const DecisionDetailView = ({
   backHref: string;
   /** 돌아가기 이름표: 판정 목록 = "목록", 사건 화면에서 온 경우 = "사건으로", 알림 페이지에서 온 경우 = "알림으로". */
   backLabel?: string;
-  isWide: boolean;
-  onToggleWide: (value: boolean) => void;
 }) => {
   const detail = query.data;
   const { user } = useAuthSession();
@@ -321,7 +341,7 @@ export const DecisionDetailView = ({
   }
   const editing = detail && isAdmin && editingId ? records.find((record) => record.originId === editingId) : undefined;
   return (
-    <div className="grid gap-4">
+    <div className="@container grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex min-w-0 items-center gap-2">
           <Button asChild variant="ghost" size="sm">
@@ -340,15 +360,6 @@ export const DecisionDetailView = ({
         <div className="flex flex-wrap items-center gap-2">
           {/* 판정이 바뀔 때만 초기화한다(409 뒤 재조회로 상태가 바뀌어도 실패 표시는 남는다, 다음 요청 때 지워짐). */}
           {detail && <WorkflowActions key={detail.id} detail={detail} canRecord={isAdmin} />}
-          <Button
-          variant="outline"
-          size="icon-sm"
-          className="max-md:hidden"
-          onClick={() => onToggleWide(!isWide)}
-          aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
-        >
-          {isWide ? <IconArrowsMinimize aria-hidden="true" /> : <IconArrowsMaximize aria-hidden="true" />}
-          </Button>
         </div>
       </div>
       {query.isPending && !detail ? (
@@ -360,17 +371,24 @@ export const DecisionDetailView = ({
           {query.isError && (
             <ErrorState title={`${analysisErrorTitle(query.error, "판정 상세")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
           )}
-          {/* AI 판정 근거 요약(서버 evidenceSummary 다섯 블록): 본문 첫 블록·전체 폭. 요약이 없는 판정(v3·판정 전)은 카드 없음. 처음에는 [AI 근거 생성 요청] 버튼만, 누르면 블록이 나타나고 이상 판정은 블록 2 다듬기를 요청한다. */}
-          {detail.evidenceSummary && <EvidenceSummarySection key={`summary-${detail.id}`} detail={detail} summary={detail.evidenceSummary} />}
-          {/* 프로토콜 알림의 판정(evidence.protocolReview, 알림 목록과 같은 판별) · 관리자 · 최종 판정만(protocol-explanation-job.md 1절 알림 대상). 없으면 Process Flow 전체 폭. */}
-          {isAdmin && detail.kind === "final" && detail.decisionId && detail.sourceId && hasProtocolReview(detail.evidence) ? (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
-              <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
-              <ProtocolExplanationCard key={`protocol-${detail.id}`} request={alertRequest(detail.sourceId, detail.decisionId)} itemLabel="설명" buttonLabel={EXPLAIN_ALERT_BUTTON} />
-            </div>
-          ) : (
-            <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
-          )}
+          {(() => {
+            // AI 판정 근거 요약(서버 evidenceSummary 다섯 블록): 요약이 없는 판정(v3·판정 전)은 카드 없음. 처음에는 제목 줄 [AI 근거 생성 요청] + 빈 상태, 누르면 블록이 흘러나오고 이상 판정은 블록 2 다듬기를 요청한다.
+            const summary = detail.evidenceSummary ? <EvidenceSummarySection key={`summary-${detail.id}`} detail={detail} summary={detail.evidenceSummary} /> : null;
+            // 프로토콜 알림의 판정(evidence.protocolReview, 알림 목록과 같은 판별) · 관리자 · 최종 판정만(protocol-explanation-job.md 1절 알림 대상): 오른쪽 열 근거 요약 아래.
+            const protocol = isAdmin && detail.kind === "final" && detail.decisionId && detail.sourceId && hasProtocolReview(detail.evidence)
+              ? <ProtocolExplanationCard key={`protocol-${detail.id}`} request={alertRequest(detail.sourceId, detail.decisionId)} itemLabel="설명" buttonLabel={EXPLAIN_ALERT_BUTTON} />
+              : null;
+            const flowCard = <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} fill={Boolean(summary || protocol)} />;
+            if (!summary && !protocol) return flowCard;
+            const both = Boolean(summary && protocol);
+            return (
+              <div className={detailPairClass(both)} data-detail-pair="">
+                {summary && <div className={detailCellClass.summary} data-detail-cell="summary">{summary}</div>}
+                <div className={both ? detailCellClass.flowTall : detailCellClass.flow} data-detail-cell="flow">{flowCard}</div>
+                {protocol && <div className={both ? detailCellClass.protocolBelow : detailCellClass.protocol} data-detail-cell="protocol">{protocol}</div>}
+              </div>
+            );
+          })()}
           <SectionCard title="판정 기록" headingLevel={2}>
             {isAdmin && feedback.isError && (
               <ErrorState title={analysisErrorTitle(feedback.error, "조사·조치 기록")} onRetry={() => void feedback.refetch()} />

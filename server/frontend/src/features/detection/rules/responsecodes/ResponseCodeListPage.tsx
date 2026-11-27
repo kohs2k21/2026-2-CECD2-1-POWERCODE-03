@@ -5,6 +5,7 @@ import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { PendingRegion, useListPending } from "@/components/ui/pending";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -48,6 +49,8 @@ export const ResponseCodeListPage = () => {
   const items = data ? [...data.items, ...more.items] : [];
   const returnState: DetectionReturnState = { returnTo: paths.detectionRuleResponseCodes };
   const filtered = Boolean(q.trim() || type);
+  // 검색·유형을 바꿔 다시 조회하는 동안 표 자리 뼈대(ui.md 로딩 표시).
+  const pending = useListPending({ pending: list.isPlaceholderData, condition: `${q.trim()}|${type}` });
 
   return (
     <div className="grid min-w-0 gap-6">
@@ -81,6 +84,7 @@ export const ResponseCodeListPage = () => {
               </NativeSelect>
             </div>
           </div>
+          <PendingRegion show={pending.show} kind={pending.kind} pending={pending.pending} className="grid gap-4">
           {items.length === 0 ? (
             <EmptyState>{filtered ? "검색 결과가 없습니다." : DICTIONARY_EMPTY}</EmptyState>
           ) : (
@@ -111,6 +115,7 @@ export const ResponseCodeListPage = () => {
               </TableBody>
             </Table>
           )}
+          </PendingRegion>
           {hasMore && (
             <div className="flex items-center gap-3 text-sm">
               <Button size="sm" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>더 보기</Button>

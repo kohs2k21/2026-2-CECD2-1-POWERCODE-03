@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { IconArrowLeft } from "@tabler/icons-react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, useLocation, useOutlet } from "react-router-dom";
+import { PageFade } from "@/components/layout/PageFade";
 import { SideNav } from "@/components/layout/SideNav";
 import { Button } from "@/components/ui/button";
 import { activeDetectionMenu, detectionMenu, paths } from "@/app/routes";
@@ -76,11 +77,12 @@ const DetectionBackBar = ({ to, label }: { to: string; label: string }) => {
  */
 export const DetectionLayout = () => {
   const location = useLocation();
-  useDetectionScroll();
+  const pinned = useDetectionScroll();
+  const outlet = useOutlet();
   const back = detectionBackTarget(location.pathname, location.state);
   const activeMenu = activeDetectionMenu(location.pathname);
   const onMenuPage = detectionMenu.some((item) => item.id === activeMenu && item.to === location.pathname);
-  const activeSection = useActiveSection(onMenuPage && activeMenu ? detectionToc[activeMenu] : null, hashId(location.hash));
+  const activeSection = useActiveSection(onMenuPage && activeMenu ? detectionToc[activeMenu] : null, hashId(location.hash), pinned);
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start">
       <SideNav
@@ -107,7 +109,8 @@ export const DetectionLayout = () => {
       />
       <div className="flex min-w-0 flex-1 flex-col gap-6">
         {back && <DetectionBackBar to={back.to} label={back.label} />}
-        <Outlet />
+        {/* 화면 전환: 경로가 바뀔 때만 본문에(사이드바·뒤로가기 줄은 그대로). 탭·단계(쿼리)·목차(해시)는 전환 없음. */}
+        <PageFade transitionKey={location.pathname}>{outlet}</PageFade>
       </div>
     </div>
   );

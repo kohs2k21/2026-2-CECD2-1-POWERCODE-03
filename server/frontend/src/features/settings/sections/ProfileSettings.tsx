@@ -1,5 +1,6 @@
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { SectionCard } from "@/components/layout/SectionCard";
+import { Button } from "@/components/ui/button";
 import type { AuthUser } from "@/types/auth";
 import { SettingRow } from "../components/SettingRow";
 import { feedbackSettings, permissionSettings } from "../settingsConfig";
@@ -10,10 +11,17 @@ const formatCreatedAt = (createdAt: string) => {
   return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" }).format(date);
 };
 
-/** 사용자 환경: 로그인 계정은 현재 세션 사용자(/api/auth/me) 실데이터. */
+/** 사용자 환경: 로그인 계정은 현재 세션 사용자(/api/auth/me) 실데이터. 저장 API가 없어 첫 카드 제목 줄 오른쪽에 비활성 `저장 미지원`(ui.md 화면 제목). */
 export const ProfileSettings = ({ currentUser }: { currentUser: AuthUser }) => (
   <div className="grid gap-4">
-    <SectionCard title="로그인 계정">
+    <SectionCard
+      title="로그인 계정"
+      action={
+        <Button variant="outline" disabled title="설정 저장 기능은 현재 서버에서 지원하지 않습니다.">
+          저장 미지원
+        </Button>
+      }
+    >
       <DescriptionList
         items={[
           { label: "이메일", value: currentUser.email },

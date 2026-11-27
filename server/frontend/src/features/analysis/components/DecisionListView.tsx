@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { IconArrowsMaximize, IconArrowsMinimize, IconChevronLeft, IconChevronRight, IconSearch } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconSearch } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { DecisionRowSkeleton, PendingRegion, TopProgress, useListPending } from "@/components/ui/pending";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -52,8 +53,6 @@ export const DecisionListView = ({
   query,
   detailHref,
   onChange,
-  isWide,
-  onToggleWide,
   live,
 }: {
   params: ListParams;
@@ -67,8 +66,6 @@ export const DecisionListView = ({
   };
   detailHref: (id: string) => string;
   onChange: (next: Partial<ListParams>, replace?: boolean) => void;
-  isWide: boolean;
-  onToggleWide: (value: boolean) => void;
   live: { status: LiveStatus; error: string; received: number };
 }) => {
   const data = query.data;
@@ -97,6 +94,11 @@ export const DecisionListView = ({
   const narrowed =
     Boolean(params.q.trim()) || params.signal !== "all" || params.completeness !== "all" || params.basis !== "all" || params.category !== "all";
 
+  // 다시 조회 중 표시(ui.md 로딩 표시): 분류·검색·필터·정렬·쪽 크기가 바뀌면 뼈대, 같은 조건의 쪽 넘김이면 이전 행 흐리게 + 진행 막대.
+  const pending = useListPending({
+    pending: query.isPlaceholderData,
+    condition: [params.category, params.q, params.signal, params.completeness, params.basis, params.sort, params.pageSize].join("|")
+  });
   let body: ReactNode;
   if (query.isPending && !data) body = <LoadingState />;
   else if (!data) body = <ErrorState title={analysisErrorTitle(query.error, "판정 목록")} onRetry={() => void query.refetch()} />;
@@ -105,21 +107,14 @@ export const DecisionListView = ({
   else body = <EmptyState>{narrowed ? "검색 또는 분류 조건에 맞는 판정이 없습니다." : "저장된 판정이 없습니다."}</EmptyState>;
 
   return (
-    <Card className="gap-4">
+    <Card className="relative gap-4">
+      <TopProgress show={pending.show && pending.kind === "dim"} />
       <CardContent className="grid gap-4">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center gap-3">
           <h2 className="flex min-w-0 items-center gap-2 text-section-title">
             <CategoryIcon aria-hidden="true" className="size-4.5 shrink-0" />
             {listTitle(params.category)} 판정
           </h2>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onToggleWide(!isWide)}
-            aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
-          >
-            {isWide ? <IconArrowsMinimize aria-hidden="true" /> : <IconArrowsMaximize aria-hidden="true" />}
-          </Button>
         </header>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1 basis-60">
@@ -190,9 +185,9 @@ export const DecisionListView = ({
             onRetry={() => void query.refetch()}
           />
         )}
-        <section className="grid gap-2" aria-label="판정 목록" aria-busy={query.isPlaceholderData || undefined}>
+        <PendingRegion show={pending.show} kind={pending.kind} pending={pending.pending} skeleton={<DecisionRowSkeleton />} rows={Math.min(params.pageSize, 6)} className="grid gap-2" label="판정 목록">
           {body}
-        </section>
+        </PendingRegion>
         <footer className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>
             전체 {data ? data.total.toLocaleString("ko-KR") : "—"}건 · 이번 세션 실시간 수신 {live.received}건

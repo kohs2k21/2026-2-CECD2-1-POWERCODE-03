@@ -3,6 +3,7 @@ import { LinkTabs } from "@/components/layout/LinkTabs";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { PendingRegion, useListPending } from "@/components/ui/pending";
 import { urlOptions } from "@/app/routes";
 import { stampText } from "@/features/operations/format";
 import { useUrlOption } from "@/hooks/useUrlState";
@@ -54,6 +55,8 @@ export const CandidateListPage = () => {
   const rules = useRuleSet();
   const recommend = useRecommendationCounts(rules.data?.revision);
   const data = query.data;
+  // 인터페이스를 바꿔 다시 조회하는 동안(ui.md 로딩 표시): 인터페이스 선택이 탭 안에 있어 뼈대로 가리지 않고 이전 결과를 흐리게 둔다.
+  const pending = useListPending({ pending: query.isPlaceholderData, condition: requested ?? "" });
   const onInterface = (id: string) => {
     const next = new URLSearchParams(search);
     next.set("interface", id);
@@ -92,7 +95,9 @@ export const CandidateListPage = () => {
           { id: "flow", label: tabText(TAB_FLOW, counts.flow), to: tab.hrefFor("flow") },
         ]}
       />
-      {tab.value === "anomaly" ? <AnomalyTab view={view} /> : <FlowTab view={view} drafts={drafts} />}
+      <PendingRegion show={pending.show} kind="dim" pending={pending.pending} className="grid min-w-0 gap-6">
+        {tab.value === "anomaly" ? <AnomalyTab view={view} /> : <FlowTab view={view} drafts={drafts} />}
+      </PendingRegion>
     </div>
   );
 };

@@ -202,7 +202,7 @@ const streamPlan = (summary: EvidenceSummary, paragraphText: string | null, rule
 
 /**
  * paragraph: 블록 2에 보일 문단(다듬은 문단). 없으면 코드 문단.
- * opened=false: 접힌 카드 — 제목 줄 왼쪽 제목, 오른쪽 [AI 근거 생성 요청](onOpen) 버튼, 본문은 남은 높이를 채우는 둥근 사각형 영역(옅은 배경·테두리) 가운데에
+ * opened=false: 접힌 카드 — 제목 줄 왼쪽 제목, 오른쪽 [AI 근거 생성 요청](onOpen) 버튼, 본문은 남은 높이를 채우는 둥근 사각형 영역(카드와 같은 흰 배경·테두리) 가운데에
  *   아이콘 + L.notGenerated(사용자 11/28). 한 열(늘어나지 않는 카드)에서는 낮은 높이.
  *   다섯 블록과 블록 2 다듬기 요청은 누른 뒤다. 펼칠 때 카드(제목 줄)는 그대로 두고 본문만 바꾼다(제목이 다시 나타나는 움직임 없음).
  *   누른 순간의 카드 높이를 흘러나오는 동안만 최소 높이로 이어 받아 카드 높이가 줄었다 늘지 않는다(흐르기가 끝나면 풀어 효과 없는 표시와 같은 DOM).
@@ -259,7 +259,7 @@ export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true,
           ref={empty}
           role="status"
           data-evidence-summary-empty="true"
-          className="flex min-h-24 flex-1 flex-col items-center justify-center gap-2 rounded-lg border bg-muted px-4 py-6 text-center text-sm text-muted-foreground"
+          className="flex min-h-24 flex-1 flex-col items-center justify-center gap-2 rounded-lg border bg-card px-4 py-6 text-center text-sm text-muted-foreground"
         >
           <IconBrain aria-hidden="true" className="size-6" />
           {L.notGenerated}

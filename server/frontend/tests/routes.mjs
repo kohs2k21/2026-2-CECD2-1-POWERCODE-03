@@ -113,7 +113,7 @@ const text = (node) =>
   !node ? "" : typeof node === "string" ? node : Array.isArray(node) ? node.map(text).join(" ") : text(node.children);
 const tick = () => act(async () => new Promise((resolve) => setTimeout(resolve, 5)));
 
-const mount = async (path, role = "admin") => {
+const mount = async (path, role = "admin", createOptions) => {
   currentUser = { id: `${role}-1`, email: `${role}@example.test`, userType: role, createdAt: "2026-10-01T00:00:00Z" };
   storage.set("token", `token-${role}`);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
@@ -122,6 +122,7 @@ const mount = async (path, role = "admin") => {
   await act(async () => {
     renderer = create(
       React.createElement(QueryClientProvider, { client }, React.createElement(AuthSessionProvider, null, React.createElement(RouterProvider, { router }))),
+      createOptions,
     );
   });
   for (let i = 0; i < 20 && text(renderer.toJSON()).includes("로그인 상태를 확인하는 중"); i++) await tick();
@@ -371,11 +372,31 @@ for (const [path, search, expected] of legacy) {
     const stoppedAt = win.scrollY;
     await sleep(200);
     assert.ok(cancelled === 1 && win.scrollY === stoppedAt && stoppedAt < 2900, "wheel stops the scroll where it is");
-    // 동작 줄이기: 즉시(scrollIntoView)
-    let into = 0;
-    target.scrollIntoView = () => (into += 1);
-    scrollToSection("far", { reduce: true });
-    assert.equal(into, 1, "reduced motion jumps at once");
+    // 스크롤 막대 끌기(입력 이벤트 없음): 목적지·문서 높이가 그대로인데 위치만 달라지면 그 자리에서 멈춘다
+    win.scrollY = 0;
+    cancelled = 0;
+    scrollToSection("far", { onCancel: () => (cancelled += 1) });
+    await sleep(60);
+    win.scrollY = 100; // 사용자가 막대를 끌어 위치를 옮김
+    await sleep(60);
+    assert.ok(cancelled === 1 && win.scrollY === 100, "dragging the scrollbar stops the scroll");
+    // 문서 높이가 바뀌어 위치가 달라진 것(내용이 줄어 끝에 맞춤 등)은 사용자 이동이 아니다
+    win.scrollY = 0;
+    cancelled = 0;
+    const stopShrink = scrollToSection("far", { onCancel: () => (cancelled += 1) });
+    await sleep(60);
+    globalThis.document.documentElement.scrollHeight = 5000;
+    win.scrollY += 40;
+    await sleep(500);
+    assert.equal(cancelled, 0, "a page height change is not a user move");
+    assert.equal(Math.round(win.scrollY), 2900, "still arrives");
+    stopShrink();
+    globalThis.document.documentElement.scrollHeight = 6000;
+    // 동작 줄이기: 즉시 그 자리로(맞춤은 그대로)
+    win.scrollY = 0;
+    const stopReduced = scrollToSection("far", { reduce: true });
+    assert.equal(Math.round(win.scrollY), 2900, "reduced motion jumps at once");
+    stopReduced();
   } finally {
     globalThis.window = saved.window;
     globalThis.document = saved.document;
@@ -466,30 +487,45 @@ for (const [path, search, expected] of legacy) {
   router.dispose();
   client.clear();
 }
-// 화면 전환 중 사라지는 화면(ui.md "움직임" 화면 전환): 효과가 켜지는 환경(문서·프레임 함수 있음)에서 실제 appRoutes로.
-// 시험 렌더러는 DOM이 없어 퇴장이 끝나지 않는다 = 이전 화면이 계속 남아 있는 상태. 그동안 이전 화면이 새 주소를 읽어 주소를 고쳐 쓰거나 새로 조회하지 않아야 한다.
+// 화면 전환(ui.md "움직임" 화면 전환, PageFade): 효과가 켜지는 환경(문서·프레임 함수·Element.animate, 본문 상자는 가짜 DOM)에서 실제 appRoutes로.
+// 이전 화면은 키가 바뀐 커밋에서 바로 내려가고 DOM 정적 사본만 남는다(가짜 애니메이션은 끝나지 않음 = 사본이 계속 사라지는 중).
+// 그동안 이전 화면에서 나오는 이동·조회가 없어야 하고, replace 이동은 효과(사본)가 없어야 한다.
 {
-  const saved = { document: globalThis.document, raf: globalThis.window.requestAnimationFrame, caf: globalThis.window.cancelAnimationFrame };
-  globalThis.document = { documentElement: {}, getElementById: () => null, querySelectorAll: () => [] };
+  const saved = { document: globalThis.document, Element: globalThis.Element, getComputedStyle: globalThis.getComputedStyle,
+    raf: globalThis.window.requestAnimationFrame, caf: globalThis.window.cancelAnimationFrame };
+  const copies = [];
+  const animation = () => ({ cancel() {}, onfinish: null });
+  const fakeCopy = () => ({ style: {}, removeAttribute() {}, setAttribute() {}, querySelectorAll: () => [], animate: animation, remove() {} });
+  const fakeHost = { style: {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), cloneNode: () => fakeCopy(), animate: animation };
+  const nodeMock = { createNodeMock: (element) => (element.type === "div" && element.props["data-page-fade"] !== undefined ? fakeHost : null) };
+  globalThis.Element = class {};
+  globalThis.Element.prototype.animate = () => animation();
+  globalThis.document = { documentElement: {}, body: { appendChild: (node) => copies.push(node) }, getElementById: () => null, querySelectorAll: () => [] };
+  globalThis.getComputedStyle = () => ({ opacity: "1", scrollPaddingTop: "0px" });
   globalThis.window.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 16);
   globalThis.window.cancelAnimationFrame = (id) => clearTimeout(id);
   const settle = async () => {
     for (let i = 0; i < 6; i++) await tick();
   };
   try {
-    // 1) 옛 주소 넘김(replace): 사라지는 넘김 화면이 새 주소를 다시 넘기지 않는다
+    // 1) 옛 주소 넘김(replace): 효과 없이 바로, 넘긴 주소 그대로
     {
-      const app = await mount("/detection/collection");
+      copies.length = 0;
+      const app = await mount("/detection/collection", "admin", nodeMock);
       await settle();
       assert.equal(location(app.router), "/operations?tab=collect", "legacy address keeps its tab");
+      assert.equal(copies.length, 0, "replace navigation has no fade copy");
       await app.cleanup();
     }
-    // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황 → 뒤로: 사라지는 모델 화면이 운영 현황 주소의 tab을 정규화하지 않는다
+    // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황(사본이 사라지는 중) → 뒤로
     {
-      const app = await mount("/detection/models?tab=all");
+      const app = await mount("/detection/models?tab=all", "admin", nodeMock);
+      copies.length = 0;
       await act(async () => app.router.navigate("/operations"));
       await settle();
-      assert.equal(location(app.router), "/operations", "leaving screen does not rewrite the new address");
+      assert.equal(copies.length, 1, "push navigation fades through a static copy");
+      assert.equal(location(app.router), "/operations", "nothing from the old screen rewrites the new address");
+      assert.equal(app.h1().includes("머신러닝 모델"), false, "the old screen is not mounted while its copy fades");
       await act(async () => app.router.navigate(-1));
       await settle();
       assert.equal(location(app.router), "/detection/models?tab=all", "back returns to the same tab");
@@ -497,7 +533,7 @@ for (const [path, search, expected] of legacy) {
     }
     // 3) 규칙 추천 › 실행 흐름 규칙 → 머신러닝 모델 → 뒤로
     {
-      const app = await mount("/detection/rules/candidates?tab=flow");
+      const app = await mount("/detection/rules/candidates?tab=flow", "admin", nodeMock);
       await act(async () => app.router.navigate("/detection/models"));
       await settle();
       assert.equal(location(app.router), "/detection/models");
@@ -506,47 +542,69 @@ for (const [path, search, expected] of legacy) {
       assert.equal(location(app.router), "/detection/rules/candidates?tab=flow", "back keeps the flow tab");
       await app.cleanup();
     }
-    // 4) 이상 분석 3쪽 → 운영 현황: 사라지는 목록이 기본 조건으로 다시 조회하지 않는다. 사라지는 화면은 inert(누를 수 없음)
+    // 4) 이상 분석 3쪽 → 운영 현황: 이전 목록이 다시 조회하지 않는다
     {
-      const app = await mount("/analysis?category=anomaly&page=3");
+      const app = await mount("/analysis?category=anomaly&page=3", "admin", nodeMock);
       await settle();
       const before = requested.filter((url) => url.startsWith("/api/analysis/decisions")).length;
       await act(async () => app.router.navigate("/operations"));
       await settle();
-      assert.equal(requested.filter((url) => url.startsWith("/api/analysis/decisions")).length, before, "no extra list read from the leaving screen");
-      const leaving = app.renderer.root.findAll((node) => node.type === "div" && node.props.inert === true);
-      assert.ok(leaving.length >= 1, "leaving screen is inert");
+      assert.equal(requested.filter((url) => url.startsWith("/api/analysis/decisions")).length, before, "no list read from the old screen");
       assert.equal(location(app.router), "/operations");
       await app.cleanup();
     }
-    // 5) A → B → A를 전환 중에 되돌아와도(퇴장 취소 — 완료 신호 없음) 기다리던 처리(스크롤)가 상한 안에 실행된다
+    // 5) 이전 화면에서 나오는 이동이 구조적으로 없다: 키가 바뀐 커밋에서 이전 화면이 내려가고, 그 뒤 이전 화면 effect는 다시 돌지 않는다
+    //    (이탈 확인 "버리고 이동"으로 초안이 지워지거나 조회 응답이 늦게 와도 이전 화면이 단계 정규화로 주소를 되돌리지 못한다)
     {
-      const { PageFade, afterPageSwap } = await import("../src/components/layout/PageFade.tsx");
-      const { createMemoryRouter: memory, RouterProvider: Provider } = await import("react-router-dom");
-      let setKey;
-      const Probe = () => {
-        const [key, set] = React.useState("a");
-        setKey = set;
-        return React.createElement(PageFade, { transitionKey: key }, key);
+      const { PageFade } = await import("../src/components/layout/PageFade.tsx");
+      const { createMemoryRouter: memory, RouterProvider: Provider, useNavigate } = await import("react-router-dom");
+      const log = [];
+      let late;
+      const Old = () => {
+        const navigate = useNavigate();
+        const [answer, setAnswer] = React.useState(0);
+        late = setAnswer;
+        React.useEffect(() => {
+          log.push(`old effect ${answer}`);
+          if (answer > 0) navigate("/old?step=1", { replace: true });
+        }, [answer, navigate]);
+        React.useEffect(() => () => log.push("old unmount"), []);
+        return "old";
       };
-      const router = memory([{ path: "/", element: React.createElement(Probe) }], { initialEntries: ["/"] });
+      let setScreen;
+      const Root = () => {
+        const [screen, set] = React.useState("old");
+        setScreen = set;
+        return React.createElement(PageFade, { transitionKey: screen }, screen === "old" ? React.createElement(Old) : "new");
+      };
+      copies.length = 0;
+      const router = memory([{ path: "*", element: React.createElement(Root) }], { initialEntries: ["/old?step=2"] });
       let view;
       await act(async () => {
-        view = create(React.createElement(Provider, { router }));
+        view = create(React.createElement(Provider, { router }), nodeMock);
       });
-      await act(async () => setKey("b"));
-      let ran = 0;
-      afterPageSwap(() => (ran += 1));
-      await act(async () => setKey("a"));
-      assert.equal(ran, 0, "waits while the swap is in progress");
-      await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
-      assert.equal(ran, 1, "a cancelled exit does not leave the waiting work stuck");
+      await act(async () => {
+        await router.navigate("/new");
+        setScreen("new");
+      });
+      assert.equal(copies.length, 1, "copy shown while fading");
+      assert.ok(log.includes("old unmount"), "old screen unmounted in the same commit");
+      const count = log.length;
+      // 이전 화면이 남아 있었다면 늦은 응답·상태 변화로 effect가 돌아 주소를 되돌렸을 것
+      await act(async () => late?.(1));
+      await settle();
+      assert.equal(log.length, count, "no old-screen effect after the switch");
+      assert.equal(router.state.location.pathname, "/new", "the old screen cannot navigate back");
       await act(async () => view.unmount());
       router.dispose();
     }
   } finally {
     globalThis.document = saved.document;
     if (saved.document === undefined) delete globalThis.document;
+    globalThis.Element = saved.Element;
+    if (saved.Element === undefined) delete globalThis.Element;
+    globalThis.getComputedStyle = saved.getComputedStyle;
+    if (saved.getComputedStyle === undefined) delete globalThis.getComputedStyle;
     globalThis.window.requestAnimationFrame = saved.raf;
     globalThis.window.cancelAnimationFrame = saved.caf;
     if (!saved.raf) delete globalThis.window.requestAnimationFrame;
@@ -559,5 +617,5 @@ assert.ok(
   "only same-origin API paths are requested: " + [...new Set(requested)].join(", "),
 );
 console.log(
-  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title, leaving screen keeps its address (no rewrite, no extra read, inert), cancelled swap does not stall",
+  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title, page fade through a static copy (old screen unmounted at once: no rewrite, no extra read, no navigation; replace without fade)",
 );

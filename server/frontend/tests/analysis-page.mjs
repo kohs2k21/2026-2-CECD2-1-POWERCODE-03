@@ -1481,8 +1481,8 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   while (actionSlot && !(actionSlot.type === "div" && actionSlot.props["data-slot"])) actionSlot = actionSlot.parent;
   assert.equal(actionSlot.props["data-slot"], "card-action", "the button sits on the title row (right side)");
   const emptyBox = promptCard.findAll((node) => node.type === "div" && node.props["data-evidence-summary-empty"] === "true")[0];
-  // 생성 전 표시(사용자 11/28): 남은 높이를 채우는 둥근 사각형(옅은 배경·테두리) 가운데 아이콘 + 문구
-  assert.ok(emptyBox && ["rounded-lg", "border", "bg-muted", "flex-1", "items-center", "justify-center"].every((name) => emptyBox.props.className.split(" ").includes(name)), "rounded box filling the rest");
+  // 생성 전 표시(사용자 11/28): 남은 높이를 채우는 둥근 사각형(흰 배경·테두리) 가운데 아이콘 + 문구
+  assert.ok(emptyBox && ["rounded-lg", "border", "bg-card", "flex-1", "items-center", "justify-center"].every((name) => emptyBox.props.className.split(" ").includes(name)), "rounded box filling the rest");
   assert.deepEqual(iconNames(emptyBox), ["brain"], "same icon family as the button");
   assert.equal(cardOf(app).length, 0, "no blocks before pressing");
   assert.deepEqual([posts("d-rv1").length, polishedReads("d-rv1")], [0, 0], "no polish request before pressing");

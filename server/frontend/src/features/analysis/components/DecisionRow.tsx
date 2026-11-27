@@ -33,14 +33,17 @@ const inputText = (item: DecisionItem) => {
   return evidence.input?.mode === "csv" ? "CSV 재생" : evidence.input?.mode === "api" ? "API 수집" : null;
 };
 
-/** 위험도 칸(와이어프레임 risk-cell·riskPill): 단계가 저장된 이상 = 단계 배지, 단계 없는 이상 = 위험도 미정, 이상이 아니면 위험도 —. */
+/**
+ * 위험도 칸(와이어프레임 risk-cell·riskPill): 단계가 저장된 이상 = 단계 배지, 단계 없는 이상 = 위험도 미정 배지(회색, 사용자 11/28 — 행 높이를 다른 분류와 같게),
+ * 이상이 아니면 위험도 —(배지와 같은 높이: 같은 테두리·위아래 여백, 테두리는 투명).
+ */
 export const RiskCell = ({ item }: { item: DecisionItem }) =>
   item.riskStatus === "rated" && item.riskLevel ? (
     <Badge variant={riskLevelVariant[item.riskLevel]}>{riskLevelLabels[item.riskLevel]}</Badge>
   ) : item.riskStatus === "unrated" ? (
-    <span className="text-xs text-muted-foreground">위험도 미정</span>
+    <Badge variant="secondary">위험도 미정</Badge>
   ) : (
-    <span className="font-mono text-xs">위험도 {DASH}</span>
+    <span className="inline-flex items-center border border-transparent py-0.5 font-mono text-xs">위험도 {DASH}</span>
   );
 
 /**

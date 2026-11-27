@@ -43,18 +43,29 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
   let timer: ReturnType<typeof setTimeout> | undefined;
   let frame = 0;
   let finished = false;
-  const animated = !reduce && typeof window.requestAnimationFrame === "function";
+  const hasFrames = typeof window.requestAnimationFrame === "function";
   let owns = false;
-  // 마지막으로 이 함수가 둔 위치·그때 목적지: 목적지가 그대로인데 위치만 달라졌으면 사용자가 움직인 것(스크롤 막대 끌기 등)
+  const root = document.documentElement;
+  // 마지막으로 이 함수가 둔 위치·그때 목적지·문서 높이: 목적지와 문서 높이가 그대로인데 위치만 달라졌으면 사용자가 움직인 것(스크롤 막대 끌기 등).
+  // 문서 높이가 바뀐 프레임(내용이 늘거나 줄어 브라우저가 위치를 조정·끝에 맞춤)은 사용자 이동으로 보지 않는다.
   let lastSet: number | null = null;
   let lastGoal: number | null = null;
+  let lastHeight: number | null = null;
   const scrollTo = (y: number, goal: number) => {
     window.scrollTo(0, y);
     lastSet = window.scrollY;
     lastGoal = goal;
+    lastHeight = root.scrollHeight;
   };
-  const userMoved = (goal: number) =>
-    lastSet !== null && lastGoal !== null && Math.abs(goal - lastGoal) < 1 && Math.abs(window.scrollY - lastSet) > 2;
+  const userMoved = (goal: number) => {
+    const height = root.scrollHeight;
+    const moved = lastSet !== null && lastGoal !== null && lastHeight === height && Math.abs(goal - lastGoal) < 1 && Math.abs(window.scrollY - lastSet) > 2;
+    if (lastHeight !== height) {
+      lastHeight = height;
+      lastSet = window.scrollY;
+    }
+    return moved;
+  };
   const cleanup = () => {
     if (owns) {
       owns = false;
@@ -70,7 +81,6 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
     cleanup();
     onCancel?.();
   }
-  const root = document.documentElement;
   const goalOf = (target: Element) => {
     const offset = Number.parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
     const raw = target.getBoundingClientRect().top + window.scrollY - offset;
@@ -89,13 +99,19 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
     frame = window.requestAnimationFrame(step);
   };
   const move = (target: Element) => {
-    if (!animated || typeof target.getBoundingClientRect !== "function") {
+    if (!hasFrames || typeof target.getBoundingClientRect !== "function") {
       cleanup();
       target.scrollIntoView?.({ block: "start" });
       return;
     }
     const from = window.scrollY;
     const distance = goalOf(target) - from;
+    // 동작 줄이기: 바로 그 자리로, 도착 뒤 맞춤(settle)은 같게 — 그동안은 "이 모듈이 움직이는 중"이라 목차 고정이 바로 풀리지 않는다.
+    if (reduce) {
+      const goal = goalOf(target);
+      scrollTo(goal, goal);
+      return settle(target, Date.now() + SCROLL_MS.settle);
+    }
     if (Math.abs(distance) < 2) return settle(target, Date.now() + SCROLL_MS.settle);
     const duration = scrollDuration(distance);
     const t0 = Date.now();
@@ -176,7 +192,14 @@ export const useDetectionScroll = () => {
   useEffect(() => {
     if (!pinned || !hasDom()) return;
     const release = () => setPinned(null);
+    let height = document.documentElement?.scrollHeight ?? 0;
     const onScroll = () => {
+      const now = document.documentElement?.scrollHeight ?? 0;
+      // 문서 높이가 바뀌어 생긴 스크롤(늦게 생긴 내용·브라우저 위치 조정)은 사용자 스크롤이 아니다.
+      if (now !== height) {
+        height = now;
+        return;
+      }
       if (!isDriving()) release();
     };
     for (const name of USER_INPUT) window.addEventListener(name, release, { passive: true });

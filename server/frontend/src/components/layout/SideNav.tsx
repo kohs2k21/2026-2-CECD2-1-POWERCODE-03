@@ -173,7 +173,8 @@ const useStretchMark = ({ container, mark, targetKey, attr, reduce, onArrive }: 
       }
       el.style.transform = `translate(${tr.left - cr.left - c.clientLeft}px, ${s.top}px)`;
       el.style.height = `${s.bottom - s.top}px`;
-      el.style.width = `${tr.width}px`;
+      // 배경 덩어리만 칸 폭을 따른다(선은 클래스의 2px 폭 그대로).
+      if (el.dataset.sideNavMark === "block") el.style.width = `${tr.width}px`;
       el.style.opacity = "1";
       if (Math.abs((s.top + s.bottom - goalTop - goalBottom) / 2) <= Math.max(3, tr.height / 4)) arrive();
       const done = Math.abs(goalTop - s.top) < 0.3 && Math.abs(goalBottom - s.bottom) < 0.3 && Math.abs(s.vt) < 2 && Math.abs(s.vb) < 2;
@@ -207,7 +208,7 @@ const StretchMark = ({ refEl, kind }: { refEl: RefObject<HTMLSpanElement | null>
     style={{ opacity: 0 }}
     className={cn(
       "pointer-events-none absolute top-0 left-0 transition-opacity duration-(--motion-duration-base) ease-motion-out",
-      kind === "block" ? "rounded-md bg-accent" : "w-0.5! bg-foreground",
+      kind === "block" ? "rounded-md bg-accent" : "w-0.5 bg-foreground",
     )}
   />
 );

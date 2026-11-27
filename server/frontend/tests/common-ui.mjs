@@ -163,14 +163,36 @@ await act(async () => renderer.unmount());
   await act(async () => view.unmount());
 }
 
+// 카드 머리(SectionCard): 설명 없이 오른쪽 명령이 있으면 한 줄(빈 둘째 줄 없음)·세로 가운데·최소 28px(이전 머리 높이), 설명이 있으면 두 줄 그대로.
+{
+  const { SectionCard } = await import("../src/components/layout/SectionCard.tsx");
+  const headerOf = async (props) => {
+    let view;
+    await act(async () => {
+      view = create(React.createElement(SectionCard, { title: "제목", ...props }, "본문"));
+    });
+    const header = view.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "card-header")[0].props.className.split(" ");
+    await act(async () => view.unmount());
+    return header;
+  };
+  const withAction = await headerOf({ action: React.createElement("button", null, "버튼") });
+  assert.ok(["grid-rows-[auto]", "min-h-7", "items-center"].every((name) => withAction.includes(name)) && !withAction.includes("grid-rows-[auto_auto]"), withAction.join(" "));
+  const withDescription = await headerOf({ action: React.createElement("button", null, "버튼"), description: "설명" });
+  assert.ok(withDescription.includes("grid-rows-[auto_auto]") && !withDescription.includes("min-h-7"), "two rows with a description");
+  const plain = await headerOf({});
+  assert.ok(plain.includes("grid-rows-[auto_auto]") && !plain.includes("min-h-7"), "no action: unchanged");
+}
+
 // 화면 전환(PageFade): DOM이 없는 환경은 효과 없이 바로 바꾸고, 전환 대기 중인 처리도 바로 실행한다.
 {
   const { PageFade, afterPageSwap } = await import("../src/components/layout/PageFade.tsx");
+  const { MemoryRouter } = await import("react-router-dom");
+  const inRouter = (key, child) => React.createElement(MemoryRouter, null, React.createElement(PageFade, { transitionKey: key }, child));
   let view;
   await act(async () => {
-    view = create(React.createElement(PageFade, { transitionKey: "/a" }, "A"));
+    view = create(inRouter("/a", "A"));
   });
-  await act(async () => view.update(React.createElement(PageFade, { transitionKey: "/b" }, "B")));
+  await act(async () => view.update(inRouter("/b", "B")));
   assert.equal(view.toJSON(), "B");
   let ran = 0;
   afterPageSwap(() => (ran += 1));

@@ -314,20 +314,25 @@ export class GraphViewBoundary extends Component<{ children: ReactNode; onRetry:
  */
 export const flowViewBoxClass = "relative h-80 w-full min-w-0 rounded-md border bg-muted";
 /**
- * 채우기(판정 상세 두 열 같은 높이): 카드가 옆 열에 맞춰 늘어나면 상자도 남은 높이를 채운다(최소 320px — min-h가 내용 높이 최소값을 대신해 트리는 상자 안에서 스크롤).
+ * 채우기(판정 상세 두 열 같은 높이): 카드가 옆 열에 맞춰 늘어나면 상자도 남은 높이를 채운다(최소 320px). 상자 내용은 안쪽 절대 위치 칸(FLOW_FILL_INNER)에 두어
+ * 내용 높이가 상자·카드 높이에 들어가지 않게 한다 — 큰 트리는 상자 안에서 스크롤하고, 트리 ↔ 그래프 보기를 바꿔도 상자 높이가 같다.
  * 그래프 보기도 같은 상자를 쓰므로 맥락으로 넘긴다.
  */
 export const flowViewBoxFillClass = "relative min-h-80 w-full min-w-0 flex-1 rounded-md border bg-muted";
+const FLOW_FILL_INNER = "absolute inset-0";
 export const FlowFillContext = createContext(false);
 export const useFlowBoxClass = () => (useContext(FlowFillContext) ? flowViewBoxFillClass : flowViewBoxClass);
 /** 상자 바깥 묶음(상자 + 선택 노드 원본 정보): 채우기면 세로 flex로 상자가 늘어난다. */
 export const useFlowStackClass = () => (useContext(FlowFillContext) ? "flex min-h-0 flex-1 flex-col gap-3" : "grid gap-3");
-export const FlowViewBox = ({ children, label, overlay }: { children: ReactNode; label?: string; overlay?: ReactNode }) => (
-  <div className={useFlowBoxClass()} role={label ? "group" : undefined} aria-label={label}>
-    {children}
-    {overlay}
-  </div>
-);
+export const FlowViewBox = ({ children, label, overlay }: { children: ReactNode; label?: string; overlay?: ReactNode }) => {
+  const fill = useContext(FlowFillContext);
+  return (
+    <div className={fill ? flowViewBoxFillClass : flowViewBoxClass} role={label ? "group" : undefined} aria-label={label}>
+      {fill ? <div className={FLOW_FILL_INNER}>{children}</div> : children}
+      {overlay}
+    </div>
+  );
+};
 
 const LegendChip = ({ className, label }: { className: string; label: string }) => (
   <li className="flex items-center gap-1">
@@ -477,7 +482,7 @@ export const ProcessFlowCard = ({
             </GraphViewBoundary>
           ) : nodes.length ? (
             <div className={fill ? flowViewBoxFillClass : flowViewBoxClass} role="group" aria-label="Process Flow">
-              <div ref={treeBox} className="h-full overflow-auto px-3 pt-9 pb-8">
+              <div ref={treeBox} className={cn(fill ? FLOW_FILL_INNER : "h-full", "overflow-auto px-3 pt-9 pb-8")}>
                 {/*
                   상자보다 작으면 가로·세로 가운데(my-auto·mx-auto: 넘칠 때는 위·왼쪽이 잘리지 않고 스크롤된다).
                   w-max min-w-full: 스크롤 영역의 바로 아래 자식이 트리 폭만큼 넓어져야 가로로 넘칠 때 오른쪽 끝에도 안쪽 여백이 남는다.

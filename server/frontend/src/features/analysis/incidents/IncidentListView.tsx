@@ -75,7 +75,7 @@ export const IncidentListView = ({
 }) => {
   const data = query.data;
   // 다시 조회 중 표시(ui.md 로딩 표시): 기간·모두 보기가 바뀌면 뼈대, 쪽 넘김(커서)이면 이전 행 흐리게 + 진행 막대.
-  const pending = useListPending({ pending: query.isPlaceholderData, condition: `${period}|${all}`, page: cursor ?? "" });
+  const pending = useListPending({ pending: query.isPlaceholderData, condition: `${period}|${all}` });
   let body: ReactNode;
   if (query.isPending && !data) body = <LoadingState />;
   else if (!data) body = <ErrorState title={incidentErrorTitle(query.error, "사건 목록")} onRetry={() => void query.refetch()} />;
@@ -190,7 +190,7 @@ export const IncidentListView = ({
         {query.isError && data && (
           <ErrorState title={`${incidentErrorTitle(query.error, "사건 목록")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
         )}
-        <PendingRegion show={pending.show} kind={pending.kind} className="grid gap-4" label="사건 목록">
+        <PendingRegion show={pending.show} kind={pending.kind} pending={pending.pending} className="grid gap-4" label="사건 목록">
           {body}
         </PendingRegion>
         {data && (cursor || data.nextCursor) && (

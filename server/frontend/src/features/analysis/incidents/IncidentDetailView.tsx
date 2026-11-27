@@ -212,6 +212,15 @@ export const IncidentDetailView = ({
   backLabel?: string;
 }) => {
   const detail = query.data;
+  // 돌아가기(사용자 11/28): 사건을 보이면 첫 카드(사건 요약) 제목 줄 오른쪽, 불러오는 중·실패면 본문 위 한 줄.
+  const back = (
+    <Button asChild variant="ghost" size="sm">
+      <Link to={backHref}>
+        <IconArrowLeft aria-hidden="true" />
+        {backLabel}
+      </Link>
+    </Button>
+  );
   let body: ReactNode;
   if (query.isPending && !detail) body = <LoadingState />;
   else if (!detail) body = <ErrorState title={incidentErrorTitle(query.error, "사건")} onRetry={() => void query.refetch()} />;
@@ -224,6 +233,7 @@ export const IncidentDetailView = ({
           description={INCIDENT_CRITERIA_NOTE}
           aria-label="사건 요약"
           action={[
+            <span key="back" className="contents">{back}</span>,
             ...detail.flags.map((flag) => (
               <Badge key={flag} variant="warning" title={incidentFlagTitles[flag]}>
                 {incidentFlagLabels[flag]}
@@ -315,14 +325,7 @@ export const IncidentDetailView = ({
   }
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Button asChild variant="ghost" size="sm">
-          <Link to={backHref}>
-            <IconArrowLeft aria-hidden="true" />
-            {backLabel}
-          </Link>
-        </Button>
-      </div>
+      {!detail && <div className="flex flex-wrap items-center gap-2 text-sm">{back}</div>}
       {body}
     </div>
   );

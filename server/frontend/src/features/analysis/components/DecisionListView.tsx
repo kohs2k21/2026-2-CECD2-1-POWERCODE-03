@@ -97,8 +97,7 @@ export const DecisionListView = ({
   // 다시 조회 중 표시(ui.md 로딩 표시): 분류·검색·필터·정렬·쪽 크기가 바뀌면 뼈대, 같은 조건의 쪽 넘김이면 이전 행 흐리게 + 진행 막대.
   const pending = useListPending({
     pending: query.isPlaceholderData,
-    condition: [params.category, params.q, params.signal, params.completeness, params.basis, params.sort, params.pageSize].join("|"),
-    page: String(params.page),
+    condition: [params.category, params.q, params.signal, params.completeness, params.basis, params.sort, params.pageSize].join("|")
   });
   let body: ReactNode;
   if (query.isPending && !data) body = <LoadingState />;
@@ -186,7 +185,7 @@ export const DecisionListView = ({
             onRetry={() => void query.refetch()}
           />
         )}
-        <PendingRegion show={pending.show} kind={pending.kind} skeleton={<DecisionRowSkeleton />} rows={Math.min(params.pageSize, 6)} className="grid gap-2" label="판정 목록">
+        <PendingRegion show={pending.show} kind={pending.kind} pending={pending.pending} skeleton={<DecisionRowSkeleton />} rows={Math.min(params.pageSize, 6)} className="grid gap-2" label="판정 목록">
           {body}
         </PendingRegion>
         <footer className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">

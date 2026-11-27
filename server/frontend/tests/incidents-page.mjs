@@ -231,6 +231,10 @@ const byData = (app, key) => app.renderer.root.findAll((node) => node.props?.[ke
   assert.equal(link.props.href, "/analysis/d/d-1");
   const back = app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "사건 목록")[0];
   assert.equal(back.props.href, "/analysis/incidents?period=30d");
+  // 돌아가기는 첫 카드(사건 요약) 제목 줄 오른쪽(사용자 11/28 — 본문 위 빈 첫 줄 없음)
+  let slot = back.parent;
+  while (slot && !(slot.type === "div" && slot.props["data-slot"])) slot = slot.parent;
+  assert.equal(slot.props["data-slot"], "card-action", "back link on the first card's title row");
   const heads = app.renderer.root.findAll((n) => n.type === "table" && n.props["aria-label"] === "거래별 구성원 표")[0].findAllByType("th").map((th) => text(th.children));
   assert.deepEqual(heads, ["거래 ID", "인터페이스", "발생 시각", "판정(단계)", "상태"]);
   assert.ok(app.shown().includes("거래 2건 · 첫 발생 시각 순"));

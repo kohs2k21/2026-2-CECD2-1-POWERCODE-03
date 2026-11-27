@@ -282,17 +282,29 @@ const EvidenceSummarySection = ({ detail, summary }: { detail: DecisionDetail; s
   return (
     <EvidenceSummaryCard
       detail={detail} summary={summary} paragraph={paragraph} opened={opened} onOpen={open} reveal={pressed} focusOnMount={pressed}
-      fill className="flex-1"
+      fill
     />
   );
 };
 
 /**
- * 판정 상세 위 두 열(analysis-ui.md 판정 상세 배치): 본문 영역 폭(컨테이너 쿼리) ≥ 1200px이면 Process Flow | 오른쪽 열(근거 요약 + 프로토콜 설명) 3:2,
- * 좁으면 한 열(오른쪽 열이 위). 두 열은 같은 높이 — 짧은 쪽이 늘어난다(Process Flow는 그래프 상자, 근거 요약은 본문이 남은 높이를 채움).
+ * 판정 상세 위 묶음(analysis-ui.md 판정 상세 배치). DOM·Tab 순서 = 한 열 순서: 근거 요약 → Process Flow → 프로토콜 설명.
+ * 본문 영역 폭(컨테이너 쿼리) ≥ 1200px이면 격자 배치로 Process Flow는 왼쪽 열(3), 근거 요약·프로토콜 설명은 오른쪽 열(2)에 위아래로.
+ * 두 열은 같은 높이 — 짧은 쪽이 늘어난다(칸 안 카드가 칸을 채움: Process Flow는 그래프 상자, 근거 요약은 본문, 둘 다 있을 때 늘어나는 오른쪽 칸은 근거 요약).
+ * 한 열일 때 열 폭은 본문 폭(minmax(0,1fr)) — 넓은 트리가 열을 넓히지 않는다.
  */
-export const DETAIL_PAIR_CLASS = "grid gap-4 @min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]";
-export const DETAIL_SIDE_CLASS = "order-first flex min-w-0 flex-col gap-4 @min-[1200px]:order-none [&>:only-child]:flex-1";
+export const detailPairClass = (summaryAndProtocol: boolean) =>
+  summaryAndProtocol
+    ? "grid grid-cols-[minmax(0,1fr)] gap-4 @min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @min-[1200px]:grid-rows-[1fr_auto]"
+    : "grid grid-cols-[minmax(0,1fr)] gap-4 @min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]";
+const CELL = "flex min-w-0 flex-col [&>*]:flex-1";
+export const detailCellClass = {
+  summary: `${CELL} @min-[1200px]:col-start-2 @min-[1200px]:row-start-1`,
+  flow: `${CELL} @min-[1200px]:col-start-1 @min-[1200px]:row-start-1`,
+  flowTall: `${CELL} @min-[1200px]:col-start-1 @min-[1200px]:row-start-1 @min-[1200px]:row-span-2`,
+  protocol: `${CELL} @min-[1200px]:col-start-2 @min-[1200px]:row-start-1`,
+  protocolBelow: `${CELL} @min-[1200px]:col-start-2 @min-[1200px]:row-start-2`,
+} as const;
 
 export const DecisionDetailView = ({
   id,
@@ -368,13 +380,12 @@ export const DecisionDetailView = ({
               : null;
             const flowCard = <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} fill={Boolean(summary || protocol)} />;
             if (!summary && !protocol) return flowCard;
+            const both = Boolean(summary && protocol);
             return (
-              <div className={DETAIL_PAIR_CLASS} data-detail-pair="">
-                {flowCard}
-                <div className={DETAIL_SIDE_CLASS}>
-                  {summary}
-                  {protocol}
-                </div>
+              <div className={detailPairClass(both)} data-detail-pair="">
+                {summary && <div className={detailCellClass.summary} data-detail-cell="summary">{summary}</div>}
+                <div className={both ? detailCellClass.flowTall : detailCellClass.flow} data-detail-cell="flow">{flowCard}</div>
+                {protocol && <div className={both ? detailCellClass.protocolBelow : detailCellClass.protocol} data-detail-cell="protocol">{protocol}</div>}
               </div>
             );
           })()}

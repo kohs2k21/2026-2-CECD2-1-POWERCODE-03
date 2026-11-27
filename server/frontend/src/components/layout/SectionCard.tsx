@@ -43,8 +43,11 @@ export const SectionCard = ({
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <Card id={id} data-slot="section-card" className={cn("gap-4", className)} style={style} aria-label={ariaLabel} aria-busy={ariaBusy || undefined}>
-      {/* 설명 줄이 없으면 제목과 오른쪽 명령(버튼·배지)을 한 줄 세로 가운데로 맞춘다(제목 줄 오른쪽 버튼, 사용자 11/28). */}
-      <CardHeader className={cn(motionClasses.enter, "max-md:px-4", !description && action && "items-center")}>
+      {/*
+        설명 줄이 없고 오른쪽 명령(버튼·배지)이 있으면 한 줄(빈 둘째 줄·간격 없음)에 세로 가운데로 맞춘다(사용자 11/28).
+        최소 높이 28px는 이 변경 전 머리 높이(제목 22 + 간격 6)와 같다 — 배지 카드는 그대로, 버튼(32px) 카드는 버튼 높이.
+      */}
+      <CardHeader className={cn(motionClasses.enter, "max-md:px-4", !description && action && "min-h-7 grid-rows-[auto] items-center")}>
         {icon ? (
           <Heading className="flex min-w-0 items-center gap-2 text-section-title">
             <span aria-hidden="true" className="flex shrink-0 [&_svg]:size-4.5">

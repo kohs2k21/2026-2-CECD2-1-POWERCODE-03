@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { EmptyState } from "@/components/ui/feedback";
 import { IconBrain } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -203,9 +202,10 @@ const streamPlan = (summary: EvidenceSummary, paragraphText: string | null, rule
 
 /**
  * paragraph: 블록 2에 보일 문단(다듬은 문단). 없으면 코드 문단.
- * opened=false: 접힌 카드 — 제목 줄 왼쪽 제목, 오른쪽 [AI 근거 생성 요청](onOpen) 버튼, 본문은 빈 상태 표시(L.notGenerated, EmptyState).
+ * opened=false: 접힌 카드 — 제목 줄 왼쪽 제목, 오른쪽 [AI 근거 생성 요청](onOpen) 버튼, 본문은 남은 높이를 채우는 둥근 사각형 영역(옅은 배경·테두리) 가운데에
+ *   아이콘 + L.notGenerated(사용자 11/28). 한 열(늘어나지 않는 카드)에서는 낮은 높이.
  *   다섯 블록과 블록 2 다듬기 요청은 누른 뒤다. 펼칠 때 카드(제목 줄)는 그대로 두고 본문만 바꾼다(제목이 다시 나타나는 움직임 없음).
- *   누른 순간의 카드 높이를 펼친 카드의 최소 높이로 이어 받아 카드 높이가 줄었다 늘지 않는다.
+ *   누른 순간의 카드 높이를 흘러나오는 동안만 최소 높이로 이어 받아 카드 높이가 줄었다 늘지 않는다(흐르기가 끝나면 풀어 효과 없는 표시와 같은 DOM).
  * fill: 같은 높이 두 열(판정 상세 넓은 본문)에서 카드가 늘어난 높이를 채운다 — 빈 상태는 가운데, 펼친 뒤 고정 안내는 맨 아래.
  * reveal: 흘러나오기를 시작할지(부르는 쪽이 정한다). focusOnMount: 누른 버튼이 사라진 자리 대신 첫 블록(한 줄 요약)에 초점을 둔다.
  * 흐르는 동안 카드는 aria-busy(조각마다 읽어 대지 않게, live 영역 아님). 처음 그린 뒤 문단이 바뀌면(다듬은 문단 도착) 그 문단만 한 번 페이드한다.
@@ -255,14 +255,20 @@ export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true,
           </Button>
         }
       >
-        <div ref={empty} data-evidence-summary-empty="true" className="grid flex-1">
-          <EmptyState className="content-center">{L.notGenerated}</EmptyState>
+        <div
+          ref={empty}
+          role="status"
+          data-evidence-summary-empty="true"
+          className="flex min-h-24 flex-1 flex-col items-center justify-center gap-2 rounded-lg border bg-muted px-4 py-6 text-center text-sm text-muted-foreground"
+        >
+          <IconBrain aria-hidden="true" className="size-6" />
+          {L.notGenerated}
         </div>
       </SectionCard>
     );
   const showTable = (ruleRows.length > 0 && visible(plan.rule[0])) || (mlRows.length > 0 && visible(plan.ml[0])) || (plan.note >= 0 && visible(plan.note));
   return (
-    <SectionCard title={L.title} headingLevel={2} aria-busy={stream.streaming} fill={fill} className={className} style={hold ? { minHeight: hold } : undefined}>
+    <SectionCard title={L.title} headingLevel={2} aria-busy={stream.streaming} fill={fill} className={className} style={hold && stream.streaming ? { minHeight: hold } : undefined}>
       <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div
         ref={first}

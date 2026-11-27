@@ -14,8 +14,9 @@ export const AppShell = ({ topNav, wide = false, children }: PropsWithChildren<{
       tabIndex={-1}
       data-wide={wide || undefined}
       className={cn(
-        "mx-auto w-full max-w-workspace px-4 py-(--page-block-padding) outline-none transition-[max-width] duration-(--motion-duration-layout) ease-motion-standard md:px-8",
-        wide && "max-w-full",
+        "mx-auto w-full px-4 py-(--page-block-padding) outline-none transition-[max-width] duration-(--motion-duration-layout) ease-motion-standard md:px-8",
+        // 둘 중 하나만 붙인다(사용자 정의 폭 max-w-workspace는 클래스 병합이 같은 종류로 보지 않아 함께 붙으면 CSS 순서상 1600px가 이긴다).
+        wide ? "max-w-full" : "max-w-workspace",
       )}
     >
       {children}

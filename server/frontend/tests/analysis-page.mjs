@@ -892,7 +892,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
     show = setId;
     const detail = details[id];
     return React.createElement(DecisionDetailView, { id: "d-8", query: ready(detail), interims: ready({ id, jobId: null, items: [] }),
-      flow: ready({ id, jobId: null, transaction: null, processes: [], messages: [], truncated: false }), backHref: "/analysis", isWide: false, onToggleWide: () => {} });
+      flow: ready({ id, jobId: null, transaction: null, processes: [], messages: [], truncated: false }), backHref: "/analysis" });
   };
   currentUser = { id: "admin-1", email: "admin@example.test", userType: "admin", createdAt: "2026-10-01T00:00:00Z" };
   storage.set("token", "token-admin");
@@ -971,18 +971,19 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   const label = link.findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
   assert.ok(label.props.className.includes("text-body"), "still the smaller size");
   assert.ok(!label.props.className.includes("text-muted-foreground"), "selected label follows the icon");
-  // 넓게 보기(사용자 11/28 (가)): 상단 메뉴 오른쪽 버튼 하나(화면 머리 버튼 없음). 누르면 본문 폭 제한만 풀고 분류 메뉴는 그대로, 값은 화면 공통 저장.
+  // 넓게 보기(사용자 11/28): 상단 메뉴 오른쪽 버튼 하나(화면 머리 버튼 없음). 누르면 본문 폭 제한만 풀고 분류 메뉴는 그대로, 값은 화면 공통 저장.
   const toggles = (name) => app.renderer.root.findAll((node) => node.type === "button" && node.props["aria-label"] === name);
   assert.equal(toggles("넓은 화면으로 보기").length, 1, "one wide toggle (top menu)");
   const inHeader = (node) => { let up = node.parent; while (up && up.type !== "header") up = up.parent; return up?.type === "header" && up.parent?.type !== "section"; };
   assert.ok(inHeader(toggles("넓은 화면으로 보기")[0]), "toggle lives in the top menu");
   assert.equal(toggles("넓은 화면으로 보기")[0].props["aria-pressed"], false);
   const main = () => app.renderer.root.findByType("main");
-  assert.ok(!main().props.className.split(" ").includes("max-w-full"), "compact: 1600px limit");
+  assert.ok(main().props.className.split(" ").includes("max-w-workspace") && !main().props.className.split(" ").includes("max-w-full"), "compact: 1600px limit");
   await act(async () => toggles("넓은 화면으로 보기")[0].props.onClick());
   await wait(() => toggles("콤팩트 화면으로 보기").length === 1, "wide mode toggle");
   assert.equal(toggles("콤팩트 화면으로 보기")[0].props["aria-pressed"], true);
   assert.ok(main().props.className.split(" ").includes("max-w-full"), "wide: the width limit is lifted");
+  assert.ok(!main().props.className.split(" ").includes("max-w-workspace"), "wide: the 1600px class is gone (both together keep 1600px by CSS order)");
   assert.equal(storage.get("esb_layout_wide"), "true", "wide mode is remembered for every screen");
   assert.equal(app.renderer.root.findAll((node) => node.props?.id === "analysis-categories").length, 1, "the category menu stays");
   await act(async () => toggles("콤팩트 화면으로 보기")[0].props.onClick());
@@ -1171,20 +1172,20 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   const [card] = cardOf(app);
   assert.ok(card, "evidence summary card shown");
   const headings = app.renderer.root.findAll((node) => node.type === "h2").map((node) => text(node.children));
-  // 배치(사용자 11/28 안 1): 위 두 열 Process Flow | 근거 요약(3:2, 본문 영역 ≥ 1200px 컨테이너 쿼리), 좁으면 한 열에서 근거 요약이 위(order-first). 아래는 전체 폭.
-  assert.ok(headings.indexOf("Process Flow") < headings.indexOf("AI 판정 근거 요약") && headings.indexOf("AI 판정 근거 요약") < headings.indexOf("판정 기록")
-    && headings.indexOf("판정 기록") < headings.indexOf("판정 요약") && headings.indexOf("판정 요약") < headings.indexOf("판정 근거"), `pair then full-width cards: ${headings.join(" / ")}`);
+  // 배치(사용자 11/28): DOM·Tab 순서 = 한 열 순서(근거 요약 → Process Flow), 아래 카드는 전체 폭.
+  // 본문 영역 ≥ 1200px(컨테이너 쿼리)이면 격자 배치로 Process Flow 왼쪽(3) | 근거 요약 오른쪽(2). 한 열 폭은 본문 폭(minmax(0,1fr)).
+  assert.ok(headings.indexOf("AI 판정 근거 요약") < headings.indexOf("Process Flow") && headings.indexOf("Process Flow") < headings.indexOf("판정 기록")
+    && headings.indexOf("판정 기록") < headings.indexOf("판정 요약") && headings.indexOf("판정 요약") < headings.indexOf("판정 근거"), `summary, flow, then full-width cards: ${headings.join(" / ")}`);
   const pair = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-detail-pair"] !== undefined)[0];
   assert.ok(pair, "two-column pair");
   assert.ok(pair.props.className.includes("@min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"), "3:2 on a wide body (container query)");
+  assert.ok(pair.props.className.split(" ").includes("grid-cols-[minmax(0,1fr)]"), "one column never grows past the body width");
+  const cell = (name) => pair.findAll((node) => node.type === "div" && node.props["data-detail-cell"] === name)[0];
+  assert.ok(cell("summary").props.className.includes("@min-[1200px]:col-start-2") && cell("flow").props.className.includes("@min-[1200px]:col-start-1"), "flow left, summary right when wide");
   const pairCards = pair.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card");
-  assert.deepEqual(pairCards.map((node) => text(node.findAllByType("h2")[0].children)), ["Process Flow", "AI 판정 근거 요약"]);
-  const side = card.parent;
-  let sideBox = side;
-  while (sideBox && !(typeof sideBox.type === "string" && String(sideBox.props.className).includes("order-first"))) sideBox = sideBox.parent;
-  assert.ok(sideBox && sideBox.props.className.includes("@min-[1200px]:order-none"), "summary column goes first when narrow");
-  // 같은 높이: 두 카드 본문이 늘어난 높이를 채운다(카드 본문 세로 flex, 근거 요약 카드 flex-1).
-  assert.ok(card.props.className.split(" ").includes("flex-1"), "summary card fills its column");
+  assert.deepEqual(pairCards.map((node) => text(node.findAllByType("h2")[0].children)), ["AI 판정 근거 요약", "Process Flow"]);
+  // 같은 높이: 칸 안 카드가 칸을 채우고(칸 [&>*]:flex-1), 카드 본문이 늘어난 높이를 채운다(세로 flex).
+  assert.ok(["summary", "flow"].every((name) => cell(name).props.className.includes("[&>*]:flex-1")), "cards fill their cells");
   assert.ok(pairCards.every((node) => node.findAll((n) => n.type === "div" && n.props["data-slot"] === "card-content")[0].props.className.includes("flex-1")), "card bodies fill the stretched height");
   assert.equal(headings.filter((h) => h === "AI 판정 근거 요약").length, 1, "only the new card carries the title (old explanation panel removed)");
   assert.ok(!app.shown().includes("설명 요청") && !app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "no request button or old panel text");
@@ -1475,12 +1476,14 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   assert.equal(text(button.children), "AI 근거 생성 요청");
   assert.deepEqual(iconNames(button), ["brain"], "button icon");
   const promptCard = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card" && node.findAll((c) => c === button).length > 0)[0];
-  assert.equal(text(promptCard.children), "AI 판정 근거 요약AI 근거 생성 요청아직 생성되지 않았습니다.", "title, button and the not-generated empty state");
+  assert.equal(text(promptCard.children), "AI 판정 근거 요약AI 근거 생성 요청AI 근거 생성 요청이 필요합니다.", "title, button and the not-generated box");
   let actionSlot = button.parent;
   while (actionSlot && !(actionSlot.type === "div" && actionSlot.props["data-slot"])) actionSlot = actionSlot.parent;
   assert.equal(actionSlot.props["data-slot"], "card-action", "the button sits on the title row (right side)");
   const emptyBox = promptCard.findAll((node) => node.type === "div" && node.props["data-evidence-summary-empty"] === "true")[0];
-  assert.ok(emptyBox && emptyBox.findAll((node) => node.type === "div" && node.props["data-slot"] === "empty-state").length === 1, "existing EmptyState part");
+  // 생성 전 표시(사용자 11/28): 남은 높이를 채우는 둥근 사각형(옅은 배경·테두리) 가운데 아이콘 + 문구
+  assert.ok(emptyBox && ["rounded-lg", "border", "bg-muted", "flex-1", "items-center", "justify-center"].every((name) => emptyBox.props.className.split(" ").includes(name)), "rounded box filling the rest");
+  assert.deepEqual(iconNames(emptyBox), ["brain"], "same icon family as the button");
   assert.equal(cardOf(app).length, 0, "no blocks before pressing");
   assert.deepEqual([posts("d-rv1").length, polishedReads("d-rv1")], [0, 0], "no polish request before pressing");
 

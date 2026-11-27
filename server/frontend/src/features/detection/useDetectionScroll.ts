@@ -25,8 +25,11 @@ const loadingAbove = (target: Element) =>
   );
 
 const ease = cubicBezier(...MOTION_EASE.standard);
-/** 사용자가 직접 움직이면(휠·터치·키·누름) 그 자리에서 멈춘다. */
+/** 사용자가 직접 움직이면(휠·터치·키·누름) 그 자리에서 멈춘다. 창 스크롤 막대 끌기는 이벤트가 없어 위치 어긋남으로 알아챈다. */
 const USER_INPUT = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+/** 이 모듈이 스크롤을 움직이는 중(이동·도착 뒤 맞춤)인지. 아닐 때 생긴 스크롤은 사용자 스크롤로 본다(목차 고정 풀기). */
+let driving = 0;
+const isDriving = () => driving > 0;
 
 /**
  * 해시 영역으로 부드럽게 스크롤(ui.md "움직임" 스크롤): 대상이 생기고 그 위 조회가 끝나면 출발한다. 시간 안에 대상이 없으면(조건부 영역) 아무것도 하지 않는다.
@@ -41,7 +44,22 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
   let frame = 0;
   let finished = false;
   const animated = !reduce && typeof window.requestAnimationFrame === "function";
+  let owns = false;
+  // 마지막으로 이 함수가 둔 위치·그때 목적지: 목적지가 그대로인데 위치만 달라졌으면 사용자가 움직인 것(스크롤 막대 끌기 등)
+  let lastSet: number | null = null;
+  let lastGoal: number | null = null;
+  const scrollTo = (y: number, goal: number) => {
+    window.scrollTo(0, y);
+    lastSet = window.scrollY;
+    lastGoal = goal;
+  };
+  const userMoved = (goal: number) =>
+    lastSet !== null && lastGoal !== null && Math.abs(goal - lastGoal) < 1 && Math.abs(window.scrollY - lastSet) > 2;
   const cleanup = () => {
+    if (owns) {
+      owns = false;
+      driving -= 1;
+    }
     finished = true;
     clearTimeout(timer);
     if (frame) window.cancelAnimationFrame(frame);
@@ -62,7 +80,9 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
     const step = () => {
       frame = 0;
       const goal = goalOf(target);
-      if (Math.abs(window.scrollY - goal) > 1) window.scrollTo(0, goal);
+      if (userMoved(goal)) return cancel();
+      if (Math.abs(window.scrollY - goal) > 1) scrollTo(goal, goal);
+      else lastGoal = goal;
       if (Date.now() < until) frame = window.requestAnimationFrame(step);
       else cleanup();
     };
@@ -82,7 +102,9 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
     const step = () => {
       frame = 0;
       const p = Math.min(1, (Date.now() - t0) / duration);
-      window.scrollTo(0, from + (goalOf(target) - from) * ease(p));
+      const goal = goalOf(target);
+      if (userMoved(goal)) return cancel();
+      scrollTo(from + (goal - from) * ease(p), goal);
       if (p < 1) frame = window.requestAnimationFrame(step);
       else settle(target, Date.now() + SCROLL_MS.settle);
     };
@@ -96,6 +118,9 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
     timer = setTimeout(attempt, SCROLL_MS.poll);
   };
   for (const name of USER_INPUT) window.addEventListener(name, cancel, { passive: true });
+  // 기다리는 동안부터 끝날 때까지 "이 모듈이 움직이는 중"(그 사이 생긴 스크롤 — 맨 위로 올림·늦게 생긴 내용 — 로 목차 고정을 풀지 않게).
+  owns = true;
+  driving += 1;
   attempt();
   return cleanup;
 };
@@ -119,7 +144,11 @@ export const useDetectionScroll = () => {
     previous.current = { pathname: location.pathname, search: location.search, hash: location.hash };
     if (!hasDom()) return;
     const target = hashId(location.hash);
-    if (navigationType === "POP" && before) return;
+    if (navigationType === "POP" && before) {
+      // 뒤로/앞으로: 브라우저 위치 복원을 따르고 목차 고정은 남기지 않는다.
+      setPinned(null);
+      return;
+    }
     const pathChanged = !before || before.pathname !== location.pathname;
     let stop = () => {};
     const run = () => {
@@ -143,12 +172,18 @@ export const useDetectionScroll = () => {
     // reduce는 이동 시작 때 값만 쓴다(설정이 바뀌어도 진행 중인 이동을 다시 걸지 않음).
   }, [location.key, location.pathname, location.search, location.hash, navigationType]); // eslint-disable-line react-hooks/exhaustive-deps
   // 고정은 사용자가 직접 스크롤하면 풀린다(이동이 끝난 뒤에도 — 짧은 마지막 영역을 눌렀을 때 그 항목이 계속 현재로 보이게).
+  // 입력 이벤트가 없는 스크롤(창 스크롤 막대 끌기)은 이 모듈이 움직이는 중이 아닐 때의 스크롤로 알아챈다.
   useEffect(() => {
     if (!pinned || !hasDom()) return;
     const release = () => setPinned(null);
+    const onScroll = () => {
+      if (!isDriving()) release();
+    };
     for (const name of USER_INPUT) window.addEventListener(name, release, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       for (const name of USER_INPUT) window.removeEventListener(name, release);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [pinned]);
   return pinned;

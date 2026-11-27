@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { useSearchParams } from "react-router-dom";
 import { IconBell, IconLayoutDashboard, IconPlug, IconUserCog } from "@tabler/icons-react";
 import { ScreenTitle } from "@/components/layout/PageHeader";
+import { PageFade } from "@/components/layout/PageFade";
 import { SideNav } from "@/components/layout/SideNav";
 import { urlOptions, withSearchParam } from "@/app/routes";
 import { useUrlOption } from "@/hooks/useUrlState";
@@ -56,7 +57,10 @@ export const SettingsPage = () => {
       <div className="grid min-w-0 flex-1 gap-6">
         <ScreenTitle>{sections[section.value].label}</ScreenTitle>
         {/* 알림 설정·화면/위젯 배치는 계정별 서버 저장(각 항목에서 바로 저장), 메일 알림은 카드의 [저장]. 사용자 환경은 저장 API가 없어 첫 카드 제목 줄 오른쪽에 `저장 미지원`. */}
-        <Active currentUser={user!} />
+        {/* 화면 전환: 설정 항목(주소의 section 값)이 바뀌면 본문만(왼쪽 메뉴는 그대로, ui.md "움직임" 화면 전환). */}
+        <PageFade transitionKey={section.value}>
+          <Active currentUser={user!} />
+        </PageFade>
       </div>
     </div>
   );

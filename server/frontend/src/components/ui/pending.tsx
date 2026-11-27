@@ -45,14 +45,13 @@ export type PendingKind = "skeleton" | "dim";
  * 목록 대기 표시 종류: 마지막으로 결과가 온 조건(condition)과 지금 조건이 다르면 skeleton, 같고 쪽(page)만 다르면 dim.
  * 최소 유지 시간 동안 응답이 와도 종류가 바뀌지 않게 대기 중에 정한 값을 기억한다.
  */
-export const useListPending = ({ pending, condition, page = "" }: { pending: boolean; condition: string; page?: string }) => {
+export const useListPending = ({ pending, condition }: { pending: boolean; condition: string }) => {
   const settled = useRef(condition);
   const kind = useRef<PendingKind>("skeleton");
   if (!pending) settled.current = condition;
   else kind.current = settled.current === condition ? "dim" : "skeleton";
-  void page;
   const show = useDelayedPending(pending);
-  return { show, kind: kind.current };
+  return { show, kind: kind.current, pending };
 };
 
 /** 기본 행 뼈대 한 줄(테두리 칸 + 두 줄 글자 자리). 목록마다 행 모양에 맞춘 뼈대를 skeleton으로 넘길 수 있다. */
@@ -79,9 +78,13 @@ export const DecisionRowSkeleton = () => (
   </div>
 );
 
-/** 대기 표시 영역: show·kind는 useListPending. 보이지 않을 때는 children 그대로(이전 결과 또는 새 결과). */
-export const PendingRegion = ({ show, kind, rows = 6, skeleton = <RowSkeleton />, children, className, label }: {
+/**
+ * 대기 표시 영역: show·kind·pending은 useListPending. 보이지 않을 때는 children 그대로(이전 결과 또는 새 결과).
+ * aria-busy는 조회 중 내내(표시가 보이기 전 지연 시간 포함, pending).
+ */
+export const PendingRegion = ({ show, kind, pending = show, rows = 6, skeleton = <RowSkeleton />, children, className, label }: {
   show: boolean;
+  pending?: boolean;
   kind: PendingKind;
   rows?: number;
   skeleton?: ReactNode;
@@ -101,7 +104,7 @@ export const PendingRegion = ({ show, kind, rows = 6, skeleton = <RowSkeleton />
       </section>
     );
   return (
-    <section aria-label={label} aria-busy={show || undefined} data-pending={show ? "dim" : undefined} className={className}>
+    <section aria-label={label} aria-busy={pending || show || undefined} data-pending={show ? "dim" : undefined} className={className}>
       {show && (
         <span role="status" className="sr-only">
           {LOADING_TEXT}

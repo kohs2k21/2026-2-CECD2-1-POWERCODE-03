@@ -95,7 +95,7 @@ export const CandidateListPage = () => {
           { id: "flow", label: tabText(TAB_FLOW, counts.flow), to: tab.hrefFor("flow") },
         ]}
       />
-      <PendingRegion show={pending.show} kind="dim" className="grid min-w-0 gap-6">
+      <PendingRegion show={pending.show} kind="dim" pending={pending.pending} className="grid min-w-0 gap-6">
         {tab.value === "anomaly" ? <AnomalyTab view={view} /> : <FlowTab view={view} drafts={drafts} />}
       </PendingRegion>
     </div>

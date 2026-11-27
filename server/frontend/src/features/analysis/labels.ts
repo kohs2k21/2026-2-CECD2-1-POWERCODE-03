@@ -68,8 +68,8 @@ export const evidenceSummaryLabels = {
   title: "AI 판정 근거 요약",
   /** 접힌 카드의 버튼(누르면 다섯 블록 표시 + 블록 2 다듬기 요청). 문구는 사용자 확인 대상 */
   generate: "AI 근거 생성 요청",
-  /** 접힌 카드 본문(생성 전 빈 자리 표시). 문구는 사용자 확인 대상 */
-  notGenerated: "아직 생성되지 않았습니다.",
+  /** 접힌 카드 본문(생성 전 빈 자리 표시, 사용자 11/28) */
+  notGenerated: "AI 근거 생성 요청이 필요합니다.",
   ruleCondition: "규칙 조건",
   observed: "이번 값",
   result: "결과",

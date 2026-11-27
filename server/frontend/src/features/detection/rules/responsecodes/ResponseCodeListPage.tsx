@@ -84,7 +84,7 @@ export const ResponseCodeListPage = () => {
               </NativeSelect>
             </div>
           </div>
-          <PendingRegion show={pending.show} kind={pending.kind} className="grid gap-4">
+          <PendingRegion show={pending.show} kind={pending.kind} pending={pending.pending} className="grid gap-4">
           {items.length === 0 ? (
             <EmptyState>{filtered ? "검색 결과가 없습니다." : DICTIONARY_EMPTY}</EmptyState>
           ) : (

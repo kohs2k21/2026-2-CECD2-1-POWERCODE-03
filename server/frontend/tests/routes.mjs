@@ -466,10 +466,98 @@ for (const [path, search, expected] of legacy) {
   router.dispose();
   client.clear();
 }
+// 화면 전환 중 사라지는 화면(ui.md "움직임" 화면 전환): 효과가 켜지는 환경(문서·프레임 함수 있음)에서 실제 appRoutes로.
+// 시험 렌더러는 DOM이 없어 퇴장이 끝나지 않는다 = 이전 화면이 계속 남아 있는 상태. 그동안 이전 화면이 새 주소를 읽어 주소를 고쳐 쓰거나 새로 조회하지 않아야 한다.
+{
+  const saved = { document: globalThis.document, raf: globalThis.window.requestAnimationFrame, caf: globalThis.window.cancelAnimationFrame };
+  globalThis.document = { documentElement: {}, getElementById: () => null, querySelectorAll: () => [] };
+  globalThis.window.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 16);
+  globalThis.window.cancelAnimationFrame = (id) => clearTimeout(id);
+  const settle = async () => {
+    for (let i = 0; i < 6; i++) await tick();
+  };
+  try {
+    // 1) 옛 주소 넘김(replace): 사라지는 넘김 화면이 새 주소를 다시 넘기지 않는다
+    {
+      const app = await mount("/detection/collection");
+      await settle();
+      assert.equal(location(app.router), "/operations?tab=collect", "legacy address keeps its tab");
+      await app.cleanup();
+    }
+    // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황 → 뒤로: 사라지는 모델 화면이 운영 현황 주소의 tab을 정규화하지 않는다
+    {
+      const app = await mount("/detection/models?tab=all");
+      await act(async () => app.router.navigate("/operations"));
+      await settle();
+      assert.equal(location(app.router), "/operations", "leaving screen does not rewrite the new address");
+      await act(async () => app.router.navigate(-1));
+      await settle();
+      assert.equal(location(app.router), "/detection/models?tab=all", "back returns to the same tab");
+      await app.cleanup();
+    }
+    // 3) 규칙 추천 › 실행 흐름 규칙 → 머신러닝 모델 → 뒤로
+    {
+      const app = await mount("/detection/rules/candidates?tab=flow");
+      await act(async () => app.router.navigate("/detection/models"));
+      await settle();
+      assert.equal(location(app.router), "/detection/models");
+      await act(async () => app.router.navigate(-1));
+      await settle();
+      assert.equal(location(app.router), "/detection/rules/candidates?tab=flow", "back keeps the flow tab");
+      await app.cleanup();
+    }
+    // 4) 이상 분석 3쪽 → 운영 현황: 사라지는 목록이 기본 조건으로 다시 조회하지 않는다. 사라지는 화면은 inert(누를 수 없음)
+    {
+      const app = await mount("/analysis?category=anomaly&page=3");
+      await settle();
+      const before = requested.filter((url) => url.startsWith("/api/analysis/decisions")).length;
+      await act(async () => app.router.navigate("/operations"));
+      await settle();
+      assert.equal(requested.filter((url) => url.startsWith("/api/analysis/decisions")).length, before, "no extra list read from the leaving screen");
+      const leaving = app.renderer.root.findAll((node) => node.type === "div" && node.props.inert === true);
+      assert.ok(leaving.length >= 1, "leaving screen is inert");
+      assert.equal(location(app.router), "/operations");
+      await app.cleanup();
+    }
+    // 5) A → B → A를 전환 중에 되돌아와도(퇴장 취소 — 완료 신호 없음) 기다리던 처리(스크롤)가 상한 안에 실행된다
+    {
+      const { PageFade, afterPageSwap } = await import("../src/components/layout/PageFade.tsx");
+      const { createMemoryRouter: memory, RouterProvider: Provider } = await import("react-router-dom");
+      let setKey;
+      const Probe = () => {
+        const [key, set] = React.useState("a");
+        setKey = set;
+        return React.createElement(PageFade, { transitionKey: key }, key);
+      };
+      const router = memory([{ path: "/", element: React.createElement(Probe) }], { initialEntries: ["/"] });
+      let view;
+      await act(async () => {
+        view = create(React.createElement(Provider, { router }));
+      });
+      await act(async () => setKey("b"));
+      let ran = 0;
+      afterPageSwap(() => (ran += 1));
+      await act(async () => setKey("a"));
+      assert.equal(ran, 0, "waits while the swap is in progress");
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+      assert.equal(ran, 1, "a cancelled exit does not leave the waiting work stuck");
+      await act(async () => view.unmount());
+      router.dispose();
+    }
+  } finally {
+    globalThis.document = saved.document;
+    if (saved.document === undefined) delete globalThis.document;
+    globalThis.window.requestAnimationFrame = saved.raf;
+    globalThis.window.cancelAnimationFrame = saved.caf;
+    if (!saved.raf) delete globalThis.window.requestAnimationFrame;
+    if (!saved.caf) delete globalThis.window.cancelAnimationFrame;
+  }
+}
+
 assert.ok(
   requested.every((url) => url.startsWith("/api/")),
   "only same-origin API paths are requested: " + [...new Set(requested)].join(", "),
 );
 console.log(
-  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title",
+  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title, leaving screen keeps its address (no rewrite, no extra read, inert), cancelled swap does not stall",
 );

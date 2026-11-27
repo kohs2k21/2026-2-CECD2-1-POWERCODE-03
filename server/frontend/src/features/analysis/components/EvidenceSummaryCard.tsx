@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { EmptyState } from "@/components/ui/feedback";
 import { IconBrain } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -202,13 +203,16 @@ const streamPlan = (summary: EvidenceSummary, paragraphText: string | null, rule
 
 /**
  * paragraph: 블록 2에 보일 문단(다듬은 문단). 없으면 코드 문단.
- * opened=false: 접힌 카드 — 제목 + [AI 근거 생성 요청](onOpen) 버튼만. 다섯 블록과 블록 2 다듬기 요청은 누른 뒤다. 새 안내 문장은 두지 않는다.
- *   펼칠 때 카드(제목 줄)는 그대로 두고 본문만 바꾼다(제목이 다시 나타나는 움직임 없음).
+ * opened=false: 접힌 카드 — 제목 줄 왼쪽 제목, 오른쪽 [AI 근거 생성 요청](onOpen) 버튼, 본문은 빈 상태 표시(L.notGenerated, EmptyState).
+ *   다섯 블록과 블록 2 다듬기 요청은 누른 뒤다. 펼칠 때 카드(제목 줄)는 그대로 두고 본문만 바꾼다(제목이 다시 나타나는 움직임 없음).
+ *   누른 순간의 카드 높이를 펼친 카드의 최소 높이로 이어 받아 카드 높이가 줄었다 늘지 않는다.
+ * fill: 같은 높이 두 열(판정 상세 넓은 본문)에서 카드가 늘어난 높이를 채운다 — 빈 상태는 가운데, 펼친 뒤 고정 안내는 맨 아래.
  * reveal: 흘러나오기를 시작할지(부르는 쪽이 정한다). focusOnMount: 누른 버튼이 사라진 자리 대신 첫 블록(한 줄 요약)에 초점을 둔다.
  * 흐르는 동안 카드는 aria-busy(조각마다 읽어 대지 않게, live 영역 아님). 처음 그린 뒤 문단이 바뀌면(다듬은 문단 도착) 그 문단만 한 번 페이드한다.
  */
-export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true, onOpen, reveal = false, focusOnMount = false }: {
+export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true, onOpen, reveal = false, focusOnMount = false, fill = false, className }: {
   detail: DecisionDetail; summary: EvidenceSummary; paragraph?: string | null; opened?: boolean; onOpen?: () => void; reveal?: boolean; focusOnMount?: boolean;
+  fill?: boolean; className?: string;
 }) => {
   const ruleRows = summary.table.filter((row): row is EvidenceSummaryRuleRow => row.kind === "rule");
   const mlRows = summary.table.filter((row): row is EvidenceSummaryMlRow => row.kind === "ml");
@@ -222,23 +226,44 @@ export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true,
   const stream = useTextStream(reveal, plan.schedule);
   const { visible } = stream;
   const first = useRef<HTMLDivElement>(null);
+  const empty = useRef<HTMLDivElement>(null);
+  const [hold, setHold] = useState<number | undefined>(undefined);
   useEffect(() => {
     if (focusOnMount) first.current?.focus();
   }, [focusOnMount]);
   if (!opened)
     return (
-      <SectionCard title={L.title} headingLevel={2}>
-        <div>
-          <Button variant="outline" size="sm" onClick={onOpen} data-evidence-summary-open="true">
+      <SectionCard
+        title={L.title}
+        headingLevel={2}
+        fill={fill}
+        className={className}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            data-evidence-summary-open="true"
+            onClick={() => {
+              // 카드 전체 높이(제목 줄 버튼 포함)를 이어 받는다 — 버튼이 빠져 제목 줄이 낮아져도 카드가 줄었다 늘지 않게.
+              const height = empty.current?.closest<HTMLElement>('[data-slot="section-card"]')?.offsetHeight;
+              if (height) setHold(height);
+              onOpen?.();
+            }}
+          >
             <IconBrain aria-hidden="true" />
             {L.generate}
           </Button>
+        }
+      >
+        <div ref={empty} data-evidence-summary-empty="true" className="grid flex-1">
+          <EmptyState className="content-center">{L.notGenerated}</EmptyState>
         </div>
       </SectionCard>
     );
   const showTable = (ruleRows.length > 0 && visible(plan.rule[0])) || (mlRows.length > 0 && visible(plan.ml[0])) || (plan.note >= 0 && visible(plan.note));
   return (
-    <SectionCard title={L.title} headingLevel={2} aria-busy={stream.streaming}>
+    <SectionCard title={L.title} headingLevel={2} aria-busy={stream.streaming} fill={fill} className={className} style={hold ? { minHeight: hold } : undefined}>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div
         ref={first}
         tabIndex={focusOnMount ? -1 : undefined}
@@ -282,10 +307,11 @@ export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true,
         </div>
       )}
       {visible(plan.notice) && (
-        <p data-evidence-summary-block="notice" className={fade(stream, "text-xs text-muted-foreground")}>
+        <p data-evidence-summary-block="notice" className={fade(stream, "mt-auto text-xs text-muted-foreground")}>
           {summary.notice}
         </p>
       )}
+      </div>
     </SectionCard>
   );
 };

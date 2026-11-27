@@ -7,7 +7,7 @@ import { paths } from "@/app/routes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/components/ui/card";
-import { motionTransition } from "@/lib/motion";
+import { GRID_SETTLE_MS, motionTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { useDraftStore } from "@/stores/draftStore";
@@ -191,6 +191,18 @@ export const OverviewTab = ({ collectHref }: { collectHref: string }) => {
   const editing = draft ? (sanitizeLayout(draft.value) ?? [...saved]) : null;
   const layout = editing ?? saved;
   const grid = mounted && width >= GRID_MIN_WIDTH;
+  // 격자 전환(라이브러리 기본 CSS의 위치·크기 전환)은 편집 중과 편집을 끝낸 뒤 GRID_SETTLE_MS만 켠다(ui.md "움직임" 화면 전환).
+  // 저장된 배치가 캐시에 있어 격자를 바로 그리면 첫 렌더는 initialWidth 기준 위치라, 실제 폭을 잰 다음 위치로 미끄러지던 것을 없앤다.
+  const isEditing = Boolean(editing);
+  const [gridMotion, setGridMotion] = useState(false);
+  useEffect(() => {
+    if (isEditing) {
+      setGridMotion(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setGridMotion(false), GRID_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [isEditing]);
 
   const activeSource = overview.data?.activeConfiguration?.sourceId;
   const source: SourceState = sources.isPending
@@ -394,6 +406,7 @@ export const OverviewTab = ({ collectHref }: { collectHref: string }) => {
             compactor={verticalCompactor}
             onLayoutChange={(next) => apply({ type: "change", layout: next as WidgetPlacement[] })}
             className={cn(
+              !gridMotion && "transition-none [&_.react-grid-item]:transition-none",
               "[&_.react-grid-placeholder]:rounded-lg [&_.react-grid-placeholder]:border [&_.react-grid-placeholder]:border-dashed [&_.react-grid-placeholder]:border-ring [&_.react-grid-placeholder]:bg-muted [&_.react-grid-placeholder]:opacity-70",
               // 크기 조절 손잡이: 라이브러리 기본 그림 대신 토큰 색 모서리 선.
               "[&_.react-resizable-handle]:z-10 [&_.react-resizable-handle]:bg-none [&_.react-resizable-handle]:opacity-70 hover:[&_.react-resizable-handle]:opacity-100 [&_.react-resizable-handle]:after:border-muted-foreground",

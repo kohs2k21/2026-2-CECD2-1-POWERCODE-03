@@ -84,8 +84,9 @@ assert.equal(plain.findAllByType("h3").length, 0);
 await act(async () => renderer.unmount());
 noHeadingRouter.dispose();
 
-// 1-1b) 움직임(사용자 11/15): 처음 그린 하위 목록은 펼친 상태 그대로(움직임 없음), 메뉴를 바꾸면 새 목록은 높이 0·투명에서 펼쳐 시작한다.
-// 현재 표시(메뉴 배경·목차 왼쪽 선)는 현재 항목에만 하나, 메뉴 항목은 누름 피드백(press). 시험 렌더러는 DOM이 없어 퇴장 애니메이션이 끝나지 않으므로 접힘 완료는 보지 않는다.
+// 1-1b) 움직임(사용자 11/15·11/28): 처음 그린 하위 목록은 펼친 상태 그대로(움직임 없음), 메뉴를 바꾸면 새 목록은 높이 0·투명에서 펼쳐 시작한다.
+// 현재 표시: 상위 항목 = 제자리 피어남(현재 칸 안 표시 하나), 하위 목록 = 늘었다 줄기(목록에 선 하나 — DOM이 없으면 바로 도착).
+// 메뉴 항목은 누름 피드백(97%). 시험 렌더러는 DOM이 없어 퇴장 애니메이션이 끝나지 않으므로 접힘 완료는 보지 않는다.
 {
   let choose;
   const MotionProbe = () => {
@@ -102,16 +103,26 @@ noHeadingRouter.dispose();
     renderer = create(React.createElement(RouterProvider, { router: motionRouter }));
   });
   const subLists = () => renderer.root.findAll((node) => node.type === "ul" && node.props["data-slot"] === "side-nav-sub");
-  const listStyle = (list) => list.parent.parent.props.style;
-  const markers = (link) => link.findAll((node) => node.type === "span" && node.props["aria-hidden"] === "true").map((node) => node.props.className);
+  const listStyle = (list) => {
+    let node = list.parent;
+    while (node && !(typeof node.type === "string" && node.props.style)) node = node.parent;
+    return node?.props.style;
+  };
+  const markers = (link) => link.findAll((node) => node.type === "span" && node.props["data-side-nav-mark"]).map((node) => node.props["data-side-nav-mark"]);
   assert.equal(subLists().length, 1);
   assert.ok(listStyle(subLists()[0]), "list sits in the animated wrapper (style present)");
   assert.equal(listStyle(subLists()[0]).height, "auto", "first render: list already open (no entrance motion)");
   assert.equal(listStyle(subLists()[0]).opacity, 1);
   const menuLinks = () => renderer.root.findAllByType("a").filter((node) => node.props.href.startsWith("/x?m="));
   assert.ok(menuLinks().every((node) => node.props.className.includes("active:not-disabled:scale-97")), "menu items use the shared press feedback");
-  assert.deepEqual(menuLinks().map((node) => markers(node).length), [1, 0], "one current background, on the current menu only");
-  assert.ok(!menuLinks()[0].props.className.split(" ").includes("bg-accent"), "current background comes from the sliding marker");
+  assert.deepEqual(menuLinks().map((node) => markers(node)), [["block"], []], "one in-place background, on the current menu only");
+  assert.ok(!menuLinks()[0].props.className.split(" ").includes("bg-accent"), "current background comes from the marker");
+  // 현재(이동 대상) 칸은 마우스 올림 배경이 먼저 켜지지 않는다. 다른 칸은 그대로.
+  assert.deepEqual(menuLinks().map((node) => node.props.className.split(" ").includes("hover:bg-accent")), [false, true], "no hover background on the current item");
+  // 하위 목록 현재 표시 = 목록에 선 하나(링크 밖), 현재 영역 글자는 도착과 함께(DOM 없음 = 바로) 진하게.
+  const firstList = subLists()[0];
+  assert.deepEqual(firstList.findAll((node) => node.type === "span" && node.props["data-side-nav-mark"]).map((node) => node.props["data-side-nav-mark"]), ["line"], "one stretch line per list");
+  assert.ok(firstList.findAllByType("a")[0].props.className.split(" ").includes("font-semibold"), "current section is lit");
   await act(async () => choose("b"));
   const entering = subLists().find((list) => list.findAllByType("a")[0].props.href === "/x#b1");
   assert.ok(entering, "new menu's list is rendered");
@@ -121,13 +132,41 @@ noHeadingRouter.dispose();
   // 접히는 이전 목록은 inert(남은 aria-current 링크·클릭·초점 없음), 펼치는 새 목록은 아님. 그룹은 flex(grid 행은 음수 여백으로 줄지 않아 간격만큼 튄다).
   const leaving = subLists().find((list) => list.findAllByType("a")[0].props.href === "/x#a1");
   assert.ok(leaving, "previous list is still collapsing");
-  assert.equal(leaving.parent.props.inert, true, "collapsing list is inert");
-  assert.equal(entering.parent.props.inert, false, "entering list is interactive");
+  const inertOf = (list) => {
+    let node = list.parent;
+    while (node && !(typeof node.type === "string" && "inert" in node.props)) node = node.parent;
+    return node?.props.inert;
+  };
+  assert.equal(inertOf(leaving), true, "collapsing list is inert");
+  assert.equal(inertOf(entering), false, "entering list is interactive");
   assert.ok(renderer.root.findAllByType("section").every((node) => node.props.className.split(" ").includes("flex-col")), "group is a flex column so the -mt/pt gap trick works");
-  assert.deepEqual(menuLinks().map((node) => markers(node).length), [0, 1], "current background moved to the new menu");
-  assert.equal(markers(entering.findAllByType("a")[0]).length, 1, "current section line in the new list");
+  // 새 메뉴에 표시가 피어나고(이전 칸 표시는 사라지는 중 — DOM이 없어 퇴장이 끝나지 않음), 글자색은 새 칸만 켜진다.
+  assert.equal(markers(menuLinks()[1]).length, 1, "current background appears on the new menu");
+  assert.deepEqual(menuLinks().map((node) => node.props.className.split(" ").includes("font-semibold")), [false, true], "only the new menu item is lit");
+  assert.equal(entering.findAll((node) => node.type === "span" && node.props["data-side-nav-mark"] === "line").length, 1, "current section line in the new list");
   await act(async () => renderer.unmount());
   motionRouter.dispose();
+}
+
+// 1-1c) subFixed(이상 분석 완료 아래 확인 결과별, 사용자 11/28): 현재 항목이 아니어도 늘 펼친 채, 펼침·접힘 움직임 상자 없음.
+{
+  const fixedRouter = createMemoryRouter([{ path: "/x", element: React.createElement(SideNav, {
+    label: "고정", menuId: "side-fixed", activeId: "open",
+    groups: [{ items: [
+      { id: "open", label: "보류", to: "/x?c=open" },
+      { id: "done", label: "완료", to: "/x?c=done", subFixed: true, sub: [{ id: "d1", label: "실제 이상", to: "/x?c=d1", currentType: "page" }, { id: "d2", label: "정상", to: "/x?c=d2", currentType: "page" }] },
+    ] }] }) }], { initialEntries: ["/x"] });
+  await act(async () => {
+    renderer = create(React.createElement(RouterProvider, { router: fixedRouter }));
+  });
+  const lists = renderer.root.findAll((node) => node.type === "ul" && node.props["data-slot"] === "side-nav-sub");
+  assert.equal(lists.length, 1, "fixed sub list shows while another item is current");
+  let up = lists[0].parent;
+  while (up && typeof up.type !== "string") up = up.parent;
+  assert.equal(up.type, "section", "fixed list sits directly in the group (no animated wrapper)");
+  assert.deepEqual(lists[0].findAllByType("a").map((node) => node.props["aria-current"] ?? null), [null, null], "no current sub item");
+  await act(async () => renderer.unmount());
+  fixedRouter.dispose();
 }
 
 // 1-2) 클래스 병합: 글자 크기 토큰(tokens.css --text-*)은 글자 색 클래스와 겹치지 않는다. 토큰 목록은 tokens.css와 일치.

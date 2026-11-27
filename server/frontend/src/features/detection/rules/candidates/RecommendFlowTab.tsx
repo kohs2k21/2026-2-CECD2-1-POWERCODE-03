@@ -4,6 +4,7 @@ import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { DelayedLoadingState } from "@/components/ui/pending";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { paths } from "@/app/routes";
@@ -169,7 +170,7 @@ const RelationsCard = ({ view, approval }: { view: CandidateView; approval: RowA
         <>
           <InterfacePicker result={result} onInterface={view.onInterface} />
           {graph && graph.nodes.length ? (
-            <Suspense fallback={<FlowViewBox><LoadingState /></FlowViewBox>}>
+            <Suspense fallback={<FlowViewBox><DelayedLoadingState /></FlowViewBox>}>
               <PatternGraphView key={selected} nodes={graph.nodes} edges={graph.edges} label={`${selected} 정상 패턴`} />
             </Suspense>
           ) : (

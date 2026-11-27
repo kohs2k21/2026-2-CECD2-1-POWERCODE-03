@@ -11,7 +11,7 @@ import { analysisErrorTitle, type DecisionFlow, type DecisionGraph, type FlowPro
 import { useDecisionGraph } from "../data/useAnalysis";
 import { DASH, graphLabels, handoffLabels, UNAVAILABLE } from "../labels";
 import {
-  fieldsOf, FLOW_NODE_W, flowNodeClass, FlowViewBox, FlowViewOverlay, FocusMarker, idOf, nameOf, NodeIcon, processToneOf, SelectedNodeFields, StatusBadge,
+  fieldsOf, FLOW_NODE_W, flowNodeClass, FlowViewBox, FlowViewOverlay, FocusMarker, idOf, nameOf, NodeIcon, processToneOf, SelectedNodeFields, StatusBadge, useFlowStackClass,
   type FlowTone, type FlowTreeNode,
 } from "./ProcessFlowCard";
 
@@ -315,6 +315,7 @@ const ProcessGraphView = ({ decisionId, flow, stats = null, focusTone = null }: 
   focusTone?: FlowTone;
 }) => {
   const query = useDecisionGraph(decisionId, true);
+  const stackClass = useFlowStackClass();
   const graph = query.data;
   const [picked, setPicked] = useState<string | null>(null);
   const focusId = graph?.nodes.find((n) => n.kind === "process" && n.attrs.focus === true)?.id ?? graph?.nodes.find((n) => n.kind !== "message")?.id ?? null;
@@ -339,7 +340,7 @@ const ProcessGraphView = ({ decisionId, flow, stats = null, focusTone = null }: 
   const selectedNode = graph.nodes.find((n) => n.id === selected);
   const tree = selectedNode && treeNodeOf(selectedNode, flow);
   return (
-    <div className="grid gap-3">
+    <div className={stackClass}>
       {query.isError && (
         <ErrorState title={`${analysisErrorTitle(query.error, graphLabels.graph)} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
       )}

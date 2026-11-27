@@ -46,7 +46,7 @@
 |---|---|---|
 | 운영 현황 | `tab` | `overview` 개요 / `collect` 수집 |
 | 알림 | `view` | `unread` 읽지 않음 / `all` 전체(바꾸면 replace — 뒤로 가기에 쌓지 않음) |
-| 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)). `integrations`는 메일 알림 카드에 자체 [저장](관리자, [email-alerts.md](email-alerts.md) 11절), Slack·Webhook 카드는 카드 안 미지원 표시 — 상단 `저장 미지원` 없음. `profile`만 상단 `저장 미지원` |
+| 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)). `integrations`는 메일 알림 카드에 자체 [저장](관리자, [email-alerts.md](email-alerts.md) 11절), Slack·Webhook 카드는 카드 안 미지원 표시 — 상단 `저장 미지원` 없음. `profile`만 `저장 미지원`(첫 카드 제목 줄 오른쪽, ui.md 화면 제목) |
 | 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
 | 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |
@@ -87,7 +87,7 @@
 - 첫 화면: 기본 경로 `/`와 돌아갈 주소가 없는(또는 허용되지 않는) 로그인 뒤 이동은 `/notifications`. 폭은 이동하는 그 순간 한 번만 본다. 돌아갈 주소가 있으면 그 주소(기존 규칙)
 - 상단 메뉴: 로고·제목·로그아웃·알림 버튼만. 주요 화면 메뉴·설정 아이콘은 숨김. 알림 버튼은 작은 창 대신 `/notifications` 링크(배지·이름 같음, 그 화면에서 `aria-current=page`) — 어느 화면에서든 알림으로 돌아가는 길
 - 알림 페이지의 바로가기는 그 주소(쿼리 포함)를 `state.returnTo`로 넘긴다. 판정 상세·사건 상세는 이 값이 알림 페이지 주소일 때 돌아가기를 `알림으로`(그 주소)로 보인다([analysis-ui.md](analysis-ui.md)·[incidents-ui.md](incidents-ui.md)). 판정 작업 ID → 판정 ID, 뒤 구간 사건 ID → 흐름 ID replace에도 이 state를 유지한다
-- 상세(판정·사건)에서는 분류 사이드바 메뉴 버튼과 넓게 보기 버튼을 숨긴다. 섹션 순서는 PC와 같다
+- 상세(판정·사건)에서는 분류 사이드바 메뉴 버튼을 숨긴다. 넓게 보기 버튼(상단 메뉴)은 휴대폰 폭에서 늘 숨긴다. 섹션 순서는 PC와 같다
 - 웹 앱 정보: `public/manifest.webmanifest`(이름 `ESB 이상 징후 탐지 대시보드`, 짧은 이름 `ESB 알림`, 시작 주소 `/notifications`, 단독 창) + iOS 홈 화면 메타(`apple-mobile-web-app-*`, 아이콘 `public/icons/`). 서비스 워커·오프라인 없음. HTTP 배포에서 Android는 설치(단독 창)가 되지 않고 바로가기만 된다
 
 ## 상태 책임
@@ -101,7 +101,7 @@
 - URL: 화면·탭·확정 필터·페이지·작업 단계
 - Zustand: 화면 간 공유가 필요한 편집 초안만(`stores/draftStore.ts`, pathname별)
 - 지역 상태: 입력 중 값·팝업·메뉴 열림
-- 브라우저 저장소: 넓게 보기 같은 화면 편의 설정만. 서버 상태·초안·토큰 이외 비밀 금지
+- 브라우저 저장소: 넓게 보기(화면 공통 한 값 `esb_layout_wide`, ui.md "움직임" 넓게 보기) 같은 화면 편의 설정만. 서버 상태·초안·토큰 이외 비밀 금지
 - 계정별 서버 저장(`/api/me/settings`): 알림 설정·운영 현황 위젯 배치. 알림 읽음 상태는 `/api/notifications/read`(notifications.md)
 - URL 제외: 토큰·비밀번호·BODY·편집 초안
 - 로그아웃·인증 만료·계정 변경: 사용자별 캐시·공유 초안·알림 정리

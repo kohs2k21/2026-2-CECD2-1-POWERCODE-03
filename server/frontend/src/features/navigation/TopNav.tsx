@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { IconActivity, IconBrain, IconHome, IconSettings, type Icon } from "@tabler/icons-react";
+import { IconActivity, IconArrowsMaximize, IconArrowsMinimize, IconBrain, IconHome, IconSettings, type Icon } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { observeHeight } from "@/lib/observeHeight";
@@ -18,7 +18,12 @@ type TopNavProps = {
   role: UserRole;
   onLogout: () => void;
   settingsPath: string;
+  /** 넓게 보기(모든 화면 공통). 넘기지 않으면 버튼 없음. */
+  wide?: boolean;
+  onToggleWide?: () => void;
 };
+/** 넓게 보기 버튼 이름(이전 이상 분석 화면 머리 버튼과 같은 이름). */
+export const wideLabels = { off: "넓은 화면으로 보기", on: "콤팩트 화면으로 보기" } as const;
 
 const navIcons: Record<TopNavId, Icon> = { operations: IconHome, analysis: IconActivity, detection: IconBrain };
 
@@ -31,9 +36,10 @@ const pillIcon =
 /**
  * 상단 메뉴(origin/dev 935e5eb 모양 유지): 좌측 로고·제목 / 가운데 정렬 메뉴 / 우측 로그아웃·알림·설정.
  * 반투명 배경 + 흐림, 1100px 이하는 메뉴를 둘째 줄로, 700px 이하는 크기를 줄인다.
- * 휴대폰 폭(768px 미만, navigation.md 휴대폰)은 주요 화면 메뉴·설정을 숨기고 로그아웃·알림(알림 페이지 링크)만 둔다.
+ * 휴대폰 폭(768px 미만, navigation.md 휴대폰)은 주요 화면 메뉴·설정·넓게 보기를 숨기고 로그아웃·알림(알림 페이지 링크)만 둔다.
+ * 넓게 보기(ui.md "넓게 보기"): 알림 버튼 왼쪽 아이콘 버튼 하나, 모든 화면 같은 자리. 켜짐은 aria-pressed + 옅은 배경, 아이콘으로 상태 구분.
  */
-export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) => {
+export const TopNav = ({ pathname, role, onLogout, settingsPath, wide = false, onToggleWide }: TopNavProps) => {
   const active = activeTopNav(pathname);
   const header = useRef<HTMLElement>(null);
   // 메뉴 배지(와이어프레임 badgeAnalysis·badgeDetect): 알림 버튼과 같은 미확인 수 조회(같은 Query 캐시)의 판정·사건 수, 작업 알림 수(관리자만 — 탐지 설정 메뉴도 관리자만).
@@ -88,6 +94,19 @@ export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) 
         <Button variant="outline" onClick={onLogout} className="h-9 rounded-full px-4 max-nav-compact:text-xs">
           로그아웃
         </Button>
+        {onToggleWide && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(pillIcon, "max-md:hidden aria-pressed:bg-accent aria-pressed:text-foreground")}
+            aria-pressed={wide}
+            aria-label={wide ? wideLabels.on : wideLabels.off}
+            title={wide ? wideLabels.on : wideLabels.off}
+            onClick={onToggleWide}
+          >
+            {wide ? <IconArrowsMinimize aria-hidden="true" /> : <IconArrowsMaximize aria-hidden="true" />}
+          </Button>
+        )}
         <NotificationsBell triggerClassName={pillIcon} />
         <Button asChild variant="ghost" size="icon" className={cn(pillIcon, "max-md:hidden")}>
           <Link to={settingsPath} aria-label="설정" aria-current={active === "settings" ? "page" : undefined}>

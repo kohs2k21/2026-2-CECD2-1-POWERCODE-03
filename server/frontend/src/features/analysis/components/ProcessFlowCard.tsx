@@ -1,8 +1,9 @@
-import { Component, lazy, Suspense, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, createContext, lazy, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { IconBinaryTree, IconCodeDots, IconCrosshair, IconDatabase, IconListDetails, IconMessage2, IconRoute, IconSitemap } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
+import { DelayedLoadingState } from "@/components/ui/pending";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getStored, setStored, storageKeys } from "@/lib/storage";
@@ -312,8 +313,17 @@ export class GraphViewBoundary extends Component<{ children: ReactNode; onRetry:
  * min-w-0: 격자 항목 최소 폭이 트리 폭(w-max)을 따라 커지지 않게 한다(넓은 트리는 카드를 넓히지 않고 상자 안에서 스크롤).
  */
 export const flowViewBoxClass = "relative h-80 w-full min-w-0 rounded-md border bg-muted";
+/**
+ * 채우기(판정 상세 두 열 같은 높이): 카드가 옆 열에 맞춰 늘어나면 상자도 남은 높이를 채운다(최소 320px — min-h가 내용 높이 최소값을 대신해 트리는 상자 안에서 스크롤).
+ * 그래프 보기도 같은 상자를 쓰므로 맥락으로 넘긴다.
+ */
+export const flowViewBoxFillClass = "relative min-h-80 w-full min-w-0 flex-1 rounded-md border bg-muted";
+export const FlowFillContext = createContext(false);
+export const useFlowBoxClass = () => (useContext(FlowFillContext) ? flowViewBoxFillClass : flowViewBoxClass);
+/** 상자 바깥 묶음(상자 + 선택 노드 원본 정보): 채우기면 세로 flex로 상자가 늘어난다. */
+export const useFlowStackClass = () => (useContext(FlowFillContext) ? "flex min-h-0 flex-1 flex-col gap-3" : "grid gap-3");
 export const FlowViewBox = ({ children, label, overlay }: { children: ReactNode; label?: string; overlay?: ReactNode }) => (
-  <div className={flowViewBoxClass} role={label ? "group" : undefined} aria-label={label}>
+  <div className={useFlowBoxClass()} role={label ? "group" : undefined} aria-label={label}>
     {children}
     {overlay}
   </div>
@@ -384,10 +394,13 @@ const scrollFocusIntoBox = (box: HTMLElement | null) => {
 export const ProcessFlowCard = ({
   query,
   decisionId,
+  fill = false,
 }: {
   query: { data: DecisionFlow | undefined; isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown };
   /** 그래프 보기 조회 대상. 없으면 보기 전환을 두지 않는다(트리만). */
   decisionId?: string;
+  /** 옆 열과 같은 높이로 늘어날 때 그래프 상자가 남은 높이를 채운다(판정 상세 두 열). */
+  fill?: boolean;
 }) => {
   const flow = query.data;
   const [selected, setSelected] = useState<string | null>(null);
@@ -445,24 +458,25 @@ export const ProcessFlowCard = ({
     </div>
   );
   return (
-    <SectionCard title="Process Flow" icon={<IconBinaryTree />} headingLevel={2} action={viewSwitch || undefined}>
+    <FlowFillContext.Provider value={fill}>
+    <SectionCard title="Process Flow" icon={<IconBinaryTree />} headingLevel={2} action={viewSwitch || undefined} fill={fill}>
       {query.isPending && !flow ? (
         <LoadingState />
       ) : !flow ? (
         <ErrorState title={analysisErrorTitle(query.error, "Process Flow")} onRetry={() => void query.refetch()} />
       ) : (
-        <div className="grid gap-3">
+        <div className={fill ? "flex min-h-0 flex-1 flex-col gap-3" : "grid gap-3"}>
           {query.isError && (
             <ErrorState title={`${analysisErrorTitle(query.error, "Process Flow")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
           )}
           {view === "graph" && decisionId ? (
             <GraphViewBoundary onRetry={() => setGraphView(loadGraphView)}>
-              <Suspense fallback={<FlowViewBox><LoadingState /></FlowViewBox>}>
+              <Suspense fallback={<FlowViewBox><DelayedLoadingState /></FlowViewBox>}>
                 <GraphView decisionId={decisionId} flow={flow} stats={stats} focusTone={focusTone} />
               </Suspense>
             </GraphViewBoundary>
           ) : nodes.length ? (
-            <div className={flowViewBoxClass} role="group" aria-label="Process Flow">
+            <div className={fill ? flowViewBoxFillClass : flowViewBoxClass} role="group" aria-label="Process Flow">
               <div ref={treeBox} className="h-full overflow-auto px-3 pt-9 pb-8">
                 {/*
                   상자보다 작으면 가로·세로 가운데(my-auto·mx-auto: 넘칠 때는 위·왼쪽이 잘리지 않고 스크롤된다).
@@ -492,5 +506,6 @@ export const ProcessFlowCard = ({
         </div>
       )}
     </SectionCard>
+    </FlowFillContext.Provider>
   );
 };

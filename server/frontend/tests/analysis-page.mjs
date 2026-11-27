@@ -971,14 +971,23 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   const label = link.findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
   assert.ok(label.props.className.includes("text-body"), "still the smaller size");
   assert.ok(!label.props.className.includes("text-muted-foreground"), "selected label follows the icon");
-  // 넓은 화면 전환: 버튼 이름·저장값이 바뀐다. 사이드바가 밀려 나가는 효과(exit)는 DOM이 없는 이 시험 환경에서 끝나지 않아 브라우저에서 확인한다.
-  const toggle = (name) => app.renderer.root.findAll((node) => node.type === "button" && node.props["aria-label"] === name)[0];
-  await act(async () => toggle("넓은 화면으로 보기").props.onClick());
-  await wait(() => Boolean(toggle("콤팩트 화면으로 보기")), "wide mode toggle");
-  assert.equal(storage.get("esb_layout_wide_analysis"), "true", "wide mode is remembered");
-  await act(async () => toggle("콤팩트 화면으로 보기").props.onClick());
-  await wait(() => Boolean(toggle("넓은 화면으로 보기")) && app.renderer.root.findAll((node) => node.props?.id === "analysis-categories").length > 0, "compact mode shows the side nav");
-  assert.equal(storage.get("esb_layout_wide_analysis"), "false");
+  // 넓게 보기(사용자 11/28 (가)): 상단 메뉴 오른쪽 버튼 하나(화면 머리 버튼 없음). 누르면 본문 폭 제한만 풀고 분류 메뉴는 그대로, 값은 화면 공통 저장.
+  const toggles = (name) => app.renderer.root.findAll((node) => node.type === "button" && node.props["aria-label"] === name);
+  assert.equal(toggles("넓은 화면으로 보기").length, 1, "one wide toggle (top menu)");
+  const inHeader = (node) => { let up = node.parent; while (up && up.type !== "header") up = up.parent; return up?.type === "header" && up.parent?.type !== "section"; };
+  assert.ok(inHeader(toggles("넓은 화면으로 보기")[0]), "toggle lives in the top menu");
+  assert.equal(toggles("넓은 화면으로 보기")[0].props["aria-pressed"], false);
+  const main = () => app.renderer.root.findByType("main");
+  assert.ok(!main().props.className.split(" ").includes("max-w-full"), "compact: 1600px limit");
+  await act(async () => toggles("넓은 화면으로 보기")[0].props.onClick());
+  await wait(() => toggles("콤팩트 화면으로 보기").length === 1, "wide mode toggle");
+  assert.equal(toggles("콤팩트 화면으로 보기")[0].props["aria-pressed"], true);
+  assert.ok(main().props.className.split(" ").includes("max-w-full"), "wide: the width limit is lifted");
+  assert.equal(storage.get("esb_layout_wide"), "true", "wide mode is remembered for every screen");
+  assert.equal(app.renderer.root.findAll((node) => node.props?.id === "analysis-categories").length, 1, "the category menu stays");
+  await act(async () => toggles("콤팩트 화면으로 보기")[0].props.onClick());
+  await wait(() => toggles("넓은 화면으로 보기").length === 1, "compact again");
+  assert.equal(storage.get("esb_layout_wide"), "false");
   await app.cleanup();
 }
 
@@ -1162,8 +1171,21 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   const [card] = cardOf(app);
   assert.ok(card, "evidence summary card shown");
   const headings = app.renderer.root.findAll((node) => node.type === "h2").map((node) => text(node.children));
-  assert.ok(headings.indexOf("AI 판정 근거 요약") < headings.indexOf("Process Flow") && headings.indexOf("Process Flow") < headings.indexOf("판정 요약")
-    && headings.indexOf("판정 요약") < headings.indexOf("판정 근거"), `card is the first block: ${headings.join(" / ")}`);
+  // 배치(사용자 11/28 안 1): 위 두 열 Process Flow | 근거 요약(3:2, 본문 영역 ≥ 1200px 컨테이너 쿼리), 좁으면 한 열에서 근거 요약이 위(order-first). 아래는 전체 폭.
+  assert.ok(headings.indexOf("Process Flow") < headings.indexOf("AI 판정 근거 요약") && headings.indexOf("AI 판정 근거 요약") < headings.indexOf("판정 기록")
+    && headings.indexOf("판정 기록") < headings.indexOf("판정 요약") && headings.indexOf("판정 요약") < headings.indexOf("판정 근거"), `pair then full-width cards: ${headings.join(" / ")}`);
+  const pair = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-detail-pair"] !== undefined)[0];
+  assert.ok(pair, "two-column pair");
+  assert.ok(pair.props.className.includes("@min-[1200px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"), "3:2 on a wide body (container query)");
+  const pairCards = pair.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card");
+  assert.deepEqual(pairCards.map((node) => text(node.findAllByType("h2")[0].children)), ["Process Flow", "AI 판정 근거 요약"]);
+  const side = card.parent;
+  let sideBox = side;
+  while (sideBox && !(typeof sideBox.type === "string" && String(sideBox.props.className).includes("order-first"))) sideBox = sideBox.parent;
+  assert.ok(sideBox && sideBox.props.className.includes("@min-[1200px]:order-none"), "summary column goes first when narrow");
+  // 같은 높이: 두 카드 본문이 늘어난 높이를 채운다(카드 본문 세로 flex, 근거 요약 카드 flex-1).
+  assert.ok(card.props.className.split(" ").includes("flex-1"), "summary card fills its column");
+  assert.ok(pairCards.every((node) => node.findAll((n) => n.type === "div" && n.props["data-slot"] === "card-content")[0].props.className.includes("flex-1")), "card bodies fill the stretched height");
   assert.equal(headings.filter((h) => h === "AI 판정 근거 요약").length, 1, "only the new card carries the title (old explanation panel removed)");
   assert.ok(!app.shown().includes("설명 요청") && !app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "no request button or old panel text");
   assert.deepEqual(blocks(card), ["line", "paragraph", "table", "checks", "notice"]);
@@ -1407,7 +1429,8 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
     const blockNode = (name) => card.find((node) => node.props?.["data-evidence-summary-block"] === name);
     assert.deepEqual(
       [blockNode("paragraph").props.className, blockNode("line").findByType("p").props.className, card.findAllByType("li")[0].props.className, blockNode("notice").props.className],
-      ["break-words break-keep text-sm leading-6", "min-w-0 break-words break-keep font-medium", "break-words break-keep", "text-xs text-muted-foreground"],
+      // 고정 안내는 맨 아래(mt-auto — 같은 높이 두 열에서 카드가 늘어나면 안내가 바닥에 붙는다, 사용자 11/28)
+      ["break-words break-keep text-sm leading-6", "min-w-0 break-words break-keep font-medium", "break-words break-keep", "mt-auto text-xs text-muted-foreground"],
       "plain display classes unchanged",
     );
     await act(async () => plain.unmount());
@@ -1443,7 +1466,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
     await act(async () => early.unmount());
   }
 
-  // 화면: 누르기 전 제목 + 버튼만, 다섯 블록·다듬기 요청 없음. 새 안내 문장 없음
+  // 화면: 누르기 전 제목 줄(제목 왼쪽 + 버튼 오른쪽, 사용자 11/28) + 본문 빈 상태(생성 전 표시), 다섯 블록·다듬기 요청 없음
   requested.length = 0;
   const app = await show("d-rv1", mixed, {}, requestable, [], { press: false, motion: true });
   await tick(30);
@@ -1452,7 +1475,12 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   assert.equal(text(button.children), "AI 근거 생성 요청");
   assert.deepEqual(iconNames(button), ["brain"], "button icon");
   const promptCard = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card" && node.findAll((c) => c === button).length > 0)[0];
-  assert.equal(text(promptCard.children), "AI 판정 근거 요약AI 근거 생성 요청", "only the title and the button");
+  assert.equal(text(promptCard.children), "AI 판정 근거 요약AI 근거 생성 요청아직 생성되지 않았습니다.", "title, button and the not-generated empty state");
+  let actionSlot = button.parent;
+  while (actionSlot && !(actionSlot.type === "div" && actionSlot.props["data-slot"])) actionSlot = actionSlot.parent;
+  assert.equal(actionSlot.props["data-slot"], "card-action", "the button sits on the title row (right side)");
+  const emptyBox = promptCard.findAll((node) => node.type === "div" && node.props["data-evidence-summary-empty"] === "true")[0];
+  assert.ok(emptyBox && emptyBox.findAll((node) => node.type === "div" && node.props["data-slot"] === "empty-state").length === 1, "existing EmptyState part");
   assert.equal(cardOf(app).length, 0, "no blocks before pressing");
   assert.deepEqual([posts("d-rv1").length, polishedReads("d-rv1")], [0, 0], "no polish request before pressing");
 

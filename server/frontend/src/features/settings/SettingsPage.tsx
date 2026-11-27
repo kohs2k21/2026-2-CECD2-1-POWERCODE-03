@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { IconBell, IconLayoutDashboard, IconPlug, IconUserCog } from "@tabler/icons-react";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SideNav } from "@/components/layout/SideNav";
-import { Button } from "@/components/ui/button";
 import { urlOptions, withSearchParam } from "@/app/routes";
 import { useUrlOption } from "@/hooks/useUrlState";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
@@ -26,9 +25,6 @@ const sectionComponents: Record<SectionId, ComponentType<{ currentUser: AuthUser
   display: DisplaySettings,
   profile: ProfileSettings,
 };
-
-/** 상단 `저장 미지원`을 두지 않는 항목: 알림 설정·화면/위젯(계정별 서버 저장), 연동 관리(메일 알림 카드에 자체 [저장], Slack·Webhook 카드는 카드 안에 미지원 표시). */
-const savingSections: readonly SectionId[] = ["notifications", "integrations", "display"];
 
 /** 설정: 독립 페이지(section URL). 다른 화면처럼 보이는 제목 없이 사이드바 현재 표시로 위치를 보인다(ui.md 화면 제목). */
 export const SettingsPage = () => {
@@ -59,14 +55,7 @@ export const SettingsPage = () => {
       />
       <div className="grid min-w-0 flex-1 gap-6">
         <ScreenTitle>{sections[section.value].label}</ScreenTitle>
-        {/* 알림 설정·화면/위젯 배치는 계정별 서버 저장(각 항목에서 바로 저장), 메일 알림은 카드의 [저장]. 사용자 환경은 저장 API가 없다. */}
-        {!savingSections.includes(section.value) && (
-          <div className="flex justify-end">
-            <Button variant="outline" disabled title="설정 저장 기능은 현재 서버에서 지원하지 않습니다.">
-              저장 미지원
-            </Button>
-          </div>
-        )}
+        {/* 알림 설정·화면/위젯 배치는 계정별 서버 저장(각 항목에서 바로 저장), 메일 알림은 카드의 [저장]. 사용자 환경은 저장 API가 없어 첫 카드 제목 줄 오른쪽에 `저장 미지원`. */}
         <Active currentUser={user!} />
       </div>
     </div>

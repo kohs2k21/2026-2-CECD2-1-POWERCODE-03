@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { IconArrowLeft, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { paths } from "@/app/routes";
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { SectionCard } from "@/components/layout/SectionCard";
@@ -205,15 +205,11 @@ export const IncidentDetailView = ({
   query,
   backHref,
   backLabel = "사건 목록",
-  isWide,
-  onToggleWide,
 }: {
   query: Query<IncidentDetail>;
   backHref: string;
   /** 돌아가기 이름표: 사건 목록 = "사건 목록", 알림 페이지에서 온 경우 = "알림으로". */
   backLabel?: string;
-  isWide: boolean;
-  onToggleWide: (value: boolean) => void;
 }) => {
   const detail = query.data;
   let body: ReactNode;
@@ -319,21 +315,12 @@ export const IncidentDetailView = ({
   }
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <Button asChild variant="ghost" size="sm">
           <Link to={backHref}>
             <IconArrowLeft aria-hidden="true" />
             {backLabel}
           </Link>
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="max-md:hidden"
-          onClick={() => onToggleWide(!isWide)}
-          aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
-        >
-          {isWide ? <IconArrowsMinimize aria-hidden="true" /> : <IconArrowsMaximize aria-hidden="true" />}
         </Button>
       </div>
       {body}

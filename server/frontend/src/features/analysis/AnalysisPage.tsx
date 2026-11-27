@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { IconTimelineEvent } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { paths } from "@/app/routes";
-import { getStored, setStored, storageKeys } from "@/lib/storage";
-import { motionTransition } from "@/lib/motion";
+import { PageFade } from "@/components/layout/PageFade";
 import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import {
@@ -67,7 +65,8 @@ export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"]
     currentType: "page" as const,
   }));
   const workflowItems = workflowCategories.map((category) =>
-    admin && category === "workflow_resolved" ? { ...item(category), sub: outcomeSub } : item(category),
+    // 확인 결과별 하위 항목은 늘 펼친 채(메뉴를 바꿔도 접히지 않음, 사용자 11/28).
+    admin && category === "workflow_resolved" ? { ...item(category), sub: outcomeSub, subFixed: true } : item(category),
   );
   return [
     view === "risk" ? { title: "위험도", items: riskCategories.map(item) } : { title: "판정", items: resultCategories.map(item) },
@@ -126,8 +125,6 @@ export const AnalysisPage = () => {
   const userOutcome = Boolean(user) && !isAdmin && isOutcomeCategory(parsed.params.category);
   const params: ListParams = userOutcome ? { ...parsed.params, category: "workflow_resolved" } : parsed.params;
   const invalid = parsed.invalid || userOutcome;
-  const [isWide, setIsWide] = useState<boolean>(() => getStored(storageKeys.layoutWide("analysis"), false));
-  const reduceMotion = useReducedMotion();
   // 보기: 위험도 분류면 위험도별, 판정 결과 분류면 판정 결과별, 분류함은 직전 보기를 유지한다.
   // 분류함 주소로 바로 들어오면 와이어프레임 기본 보기(위험도별, analysisView='risk')
   const [lastView, setLastView] = useState<AnalysisView>(() => (isResult(params.category) ? "result" : "risk"));
@@ -187,10 +184,6 @@ export const AnalysisPage = () => {
     },
     [location.search, navigate],
   );
-  const onToggleWide = (value: boolean) => {
-    setIsWide(value);
-    setStored(storageKeys.layoutWide("analysis"), value);
-  };
   const activeId = incidentsMode ? "incidents" : decisionId ? null : params.category;
   const groups = useMemo(
     () => [...sidebarGroups(params, list.data?.counts, view, isAdmin, activeId), incidentNavGroup()],
@@ -227,33 +220,17 @@ export const AnalysisPage = () => {
   return (
     <div className="grid gap-6">
       <ScreenTitle>이상 분석</ScreenTitle>
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
-        {/*
-          넓은 화면 전환(#100 이전 analysis-detail-view--wide: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1)): 사이드바가 왼쪽으로 밀려 나가고
-          본문이 그만큼 넓어진다. 오른쪽 정렬한 사이드바를 감싼 폭을 줄여 왼쪽으로 미끄러지게 보인다. 동작 줄이기면 바로 바뀐다.
-          overflow-clip은 스크롤 상자를 만들지 않아 사이드바 고정(sticky)이 유지된다.
-        */}
-        <AnimatePresence initial={false}>
-          {!isWide && (
-            <motion.div
-              key="side-nav"
-              // 휴대폰 폭의 상세(판정·사건)는 분류 메뉴 버튼을 숨긴다(목록은 휴대폰 범위 밖이라 그대로).
-              className={cn("shrink-0 overflow-clip md:flex md:justify-end md:self-stretch", (decisionId || incidentId) && "max-md:hidden")}
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "auto", opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={reduceMotion ? { duration: 0 } : motionTransition("layout", "standard")}
-            >
-              <div className="shrink-0 md:pr-6">
-                <SideNav label="판정 분류" menuId="analysis-categories" activeId={activeId} groups={groups} header={viewSwitch} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div className="flex flex-col gap-6 md:flex-row md:items-start">
+        {/* 넓게 보기는 앱 공통(상단 메뉴 오른쪽 버튼, 본문 폭 제한만 푼다) — 분류 메뉴는 늘 그대로. 휴대폰 폭의 상세(판정·사건)는 분류 메뉴 버튼을 숨긴다. */}
+        <div className={cn("shrink-0", (decisionId || incidentId) && "max-md:hidden")}>
+          <SideNav label="판정 분류" menuId="analysis-categories" activeId={activeId} groups={groups} header={viewSwitch} />
+        </div>
         <section
           className="min-w-0 flex-1"
           aria-label={incidentsMode ? (incidentId ? "사건 상세" : "사건 목록") : decisionId ? "판정 상세" : "판정 목록"}
         >
+          {/* 화면 전환(ui.md "움직임" 화면 전환): 목록·상세·사건 사이 경로가 바뀔 때만 사라지기 → 나타나기. 분류·쪽·검색(쿼리)은 전환 없음. */}
+          <PageFade transitionKey={location.pathname}>
           {incidentsMode ? (
             incidentId ? (
               <IncidentDetailView
@@ -261,8 +238,6 @@ export const AnalysisPage = () => {
                 query={incidentDetail}
                 backHref={incidentBack ?? paths.analysisIncidents + incidentSearch(incidentQuery)}
                 backLabel={incidentBack ? NOTIFICATIONS_BACK_LABEL : undefined}
-                isWide={isWide}
-                onToggleWide={onToggleWide}
               />
             ) : (
               <IncidentListView
@@ -272,8 +247,6 @@ export const AnalysisPage = () => {
                 query={incidentList}
                 detailHref={(id) => paths.analysisIncident(id) + location.search}
                 onChange={onIncidentChange}
-                isWide={isWide}
-                onToggleWide={onToggleWide}
               />
             )
           ) : decisionId ? (
@@ -285,8 +258,6 @@ export const AnalysisPage = () => {
               flow={flow}
               backHref={back?.href ?? paths.analysis + search}
               backLabel={back?.label ?? "목록"}
-              isWide={isWide}
-              onToggleWide={onToggleWide}
             />
           ) : (
             <DecisionListView
@@ -294,11 +265,10 @@ export const AnalysisPage = () => {
               query={list}
               detailHref={(id) => paths.analysisDecision(id) + search}
               onChange={onChange}
-              isWide={isWide}
-              onToggleWide={onToggleWide}
               live={live}
             />
           )}
+          </PageFade>
         </section>
       </div>
     </div>

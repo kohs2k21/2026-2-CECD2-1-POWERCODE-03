@@ -1,6 +1,7 @@
 /** 브라우저에만 두는 화면 편의 설정(넓게 보기 등). 서버 상태·편집 초안·토큰은 여기에 두지 않는다. */
 export const storageKeys = {
-  layoutWide: (view: "analysis") => `esb_layout_wide_${view}`,
+  /** 넓게 보기(모든 화면 공통). 이전 이상 분석 전용 값(esb_layout_wide_analysis, 메뉴 접기)은 뜻이 달라 이어받지 않는다. */
+  layoutWide: "esb_layout_wide",
   processFlowView: "esb_process_flow_view",
 } as const;
 

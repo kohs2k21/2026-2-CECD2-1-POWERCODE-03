@@ -161,7 +161,7 @@ for (const [path, title] of pages) {
   await app.cleanup();
 }
 
-// 설정: 다른 화면과 같은 구조(복귀 버튼·보이는 제목 없음), 저장 미지원은 내용 오른쪽 위, 상단 설정 링크에 복귀 주소 없음
+// 설정: 다른 화면과 같은 구조(복귀 버튼·보이는 제목 없음), 저장 미지원은 첫 카드 제목 줄 오른쪽(빈 줄 없음, 사용자 11/28), 상단 설정 링크에 복귀 주소 없음
 {
   const app = await mount("/settings?section=profile");
   const anchors = () => app.renderer.root.findAll((node) => node.type === "a");
@@ -169,7 +169,11 @@ for (const [path, title] of pages) {
   assert.equal(anchors().filter((node) => textOf(node).includes("이전 화면으로 돌아가기")).length, 0, "no back button");
   const save = app.renderer.root.findAll((node) => node.type === "button" && textOf(node) === "저장 미지원")[0];
   assert.equal(save.props.disabled, true, "the unsupported save stays");
-  assert.ok(save.parent.parent.props.className?.includes("justify-end") || save.parent.props.className?.includes("justify-end"), "aligned to the right");
+  let slot = save.parent;
+  while (slot && !slot.props?.["data-slot"]) slot = slot.parent;
+  assert.equal(slot.props["data-slot"], "card-action", "in the first card's title row (right side)");
+  const firstCard = app.renderer.root.findAll((node) => node.props?.["data-slot"] === "section-card")[0];
+  assert.ok(firstCard.findAll((node) => node === save).length === 1, "on the first card");
   assert.equal(anchors().find((node) => node.props["aria-label"] === "설정").props.href, "/settings?section=profile", "the current section stays");
   await app.cleanup();
   // 옛 주소 `?returnTo=`: 화면이 그대로 열리고 복귀 버튼은 없다
@@ -317,6 +321,69 @@ for (const [path, search, expected] of legacy) {
     delete globalThis.window.scrollTo;
     delete globalThis.document;
     delete globalThis.Node;
+  }
+}
+
+// 부드러운 스크롤(scrollToSection, ui.md "움직임" 스크롤): 프레임마다 목적지를 다시 재서 도착, 이동 중 목적지가 밀려도 맞춤, 사용자 입력이면 그 자리에서 멈춤.
+{
+  const { scrollToSection } = await import("../src/features/detection/useDetectionScroll.ts");
+  const listeners = new Map();
+  const win = {
+    scrollY: 0,
+    innerHeight: 800,
+    scrollTo: (_x, y) => { win.scrollY = y; },
+    requestAnimationFrame: (callback) => setTimeout(callback, 8),
+    cancelAnimationFrame: (id) => clearTimeout(id),
+    addEventListener: (name, fn) => listeners.set(name, [...(listeners.get(name) ?? []), fn]),
+    removeEventListener: (name, fn) => listeners.set(name, (listeners.get(name) ?? []).filter((item) => item !== fn)),
+  };
+  let sectionTop = 3000; // 문서 기준 위치
+  const target = { id: "far", contains: () => false, compareDocumentPosition: () => 0, getBoundingClientRect: () => ({ top: sectionTop - win.scrollY }) };
+  const saved = { window: globalThis.window, document: globalThis.document, getComputedStyle: globalThis.getComputedStyle, Node: globalThis.Node };
+  globalThis.window = win;
+  globalThis.Node = { DOCUMENT_POSITION_PRECEDING: 2 };
+  globalThis.document = { documentElement: { scrollHeight: 6000 }, getElementById: (id) => (id === "far" ? target : null), querySelectorAll: () => [] };
+  globalThis.getComputedStyle = () => ({ scrollPaddingTop: "100px" });
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  try {
+    const positions = [];
+    const stop = scrollToSection("far");
+    for (let i = 0; i < 12; i++) {
+      await sleep(25);
+      positions.push(win.scrollY);
+    }
+    assert.ok(positions[0] > 0 && positions[0] < 2900, `moves in steps, not a jump (${positions[0]})`);
+    assert.ok(positions.every((value, index) => index === 0 || value >= positions[index - 1]), "keeps moving forward");
+    await sleep(500);
+    assert.equal(Math.round(win.scrollY), 2900, "arrives under the sticky header (scroll-padding-top)");
+    // 도착 뒤 위쪽 내용이 늦게 생겨 목적지가 밀리면 맞춘다(settle)
+    sectionTop = 3300;
+    await sleep(60);
+    assert.equal(Math.round(win.scrollY), 3200, "follows a late shift after arriving");
+    stop();
+    // 사용자 입력이면 그 자리에서 멈춘다
+    win.scrollY = 0;
+    sectionTop = 3000;
+    let cancelled = 0;
+    scrollToSection("far", { onCancel: () => (cancelled += 1) });
+    await sleep(60);
+    (listeners.get("wheel") ?? []).forEach((fn) => fn());
+    const stoppedAt = win.scrollY;
+    await sleep(200);
+    assert.ok(cancelled === 1 && win.scrollY === stoppedAt && stoppedAt < 2900, "wheel stops the scroll where it is");
+    // 동작 줄이기: 즉시(scrollIntoView)
+    let into = 0;
+    target.scrollIntoView = () => (into += 1);
+    scrollToSection("far", { reduce: true });
+    assert.equal(into, 1, "reduced motion jumps at once");
+  } finally {
+    globalThis.window = saved.window;
+    globalThis.document = saved.document;
+    globalThis.getComputedStyle = saved.getComputedStyle;
+    globalThis.Node = saved.Node;
+    if (saved.window === undefined) delete globalThis.window;
+    if (saved.document === undefined) delete globalThis.document;
+    if (saved.Node === undefined) delete globalThis.Node;
   }
 }
 

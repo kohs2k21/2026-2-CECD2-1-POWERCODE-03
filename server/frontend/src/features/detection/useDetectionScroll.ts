@@ -36,7 +36,7 @@ const isDriving = () => driving > 0;
  * - 길이는 거리에 따라 SCROLL_MS.min~max(scrollDuration), 곡선 standard. 매 프레임 목적지를 다시 잰다(이동 중 위쪽 내용이 늘어도 목적지에 도착)
  * - 도착 뒤 SCROLL_MS.settle 동안 목적지가 움직이면(늦게 생긴 위쪽 내용) 바로 맞춘다
  * - 기다리거나 움직이는 동안 사용자가 직접 스크롤·키 입력·누르기를 하면 그 자리에서 멈춘다(onCancel)
- * - 고정 머리글·고정 줄 높이는 문서 scroll-padding-top이 피한다. 동작 줄이기·프레임 함수가 없는 환경은 즉시(scrollIntoView)
+ * - 고정 머리글·고정 줄 높이는 문서 scroll-padding-top이 피한다. 동작 줄이기면 그 자리로 바로(도착 뒤 맞춤은 같음), 프레임 함수가 없는 환경은 scrollIntoView
  */
 export const scrollToSection = (id: string, { reduce = false, onCancel }: { reduce?: boolean; onCancel?: () => void } = {}) => {
   const started = Date.now();
@@ -166,21 +166,22 @@ export const useDetectionScroll = () => {
       return;
     }
     const pathChanged = !before || before.pathname !== location.pathname;
-    let stop = () => {};
-    const run = () => {
-      if (target) {
-        // 다른 화면에서 온 해시 이동(하위 화면 → 첫 화면 목차)은 이전 위치를 먼저 지운다. 대상을 기다리는 동안 이전 화면 위치에 머물지 않게 한다.
-        if (before && pathChanged) window.scrollTo(0, 0);
-        setPinned(target);
-        stop = scrollToSection(target, { reduce, onCancel: () => setPinned(null) });
-        return;
-      }
+    if (!target) {
+      // 맨 위로 올리기는 그리기 전에 바로(화면 전환 사본은 화면 기준 고정이라 튀지 않는다). 자식의 작업 영역 스크롤(step 주소, passive effect)이 그 뒤에 이긴다.
       setPinned(null);
       if (navigationType === "POP") return;
       const hashCleared = !!before && !!before.hash && before.search === location.search;
       if (pathChanged || hashCleared) window.scrollTo(0, 0);
-    };
-    const unwait = afterPageSwap(run);
+      return;
+    }
+    // 다른 화면에서 온 해시 이동(하위 화면 → 첫 화면 목차)은 이전 위치를 먼저 지운다(바로). 영역까지 부드러운 이동은 보이는 움직임이라
+    // 같은 커밋의 화면 전환 사본이 사라진 뒤에 시작한다.
+    if (before && pathChanged) window.scrollTo(0, 0);
+    setPinned(target);
+    let stop = () => {};
+    const unwait = afterPageSwap(() => {
+      stop = scrollToSection(target, { reduce, onCancel: () => setPinned(null) });
+    });
     return () => {
       unwait();
       stop();
@@ -192,9 +193,15 @@ export const useDetectionScroll = () => {
   useEffect(() => {
     if (!pinned || !hasDom()) return;
     const release = () => setPinned(null);
-    let height = document.documentElement?.scrollHeight ?? 0;
+    const docHeight = () => document.documentElement?.scrollHeight ?? 0;
+    let height = docHeight();
+    // 문서 높이가 바뀌면 그 직후 스크롤(브라우저 위치 조정)만 건너뛰고, 높이는 크기 감시로 늘 새로 둔다(그 뒤 첫 막대 끌기는 사용자 스크롤로 잡힘).
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      height = docHeight();
+    });
+    if (document.body) resize?.observe(document.body);
     const onScroll = () => {
-      const now = document.documentElement?.scrollHeight ?? 0;
+      const now = docHeight();
       // 문서 높이가 바뀌어 생긴 스크롤(늦게 생긴 내용·브라우저 위치 조정)은 사용자 스크롤이 아니다.
       if (now !== height) {
         height = now;
@@ -207,6 +214,7 @@ export const useDetectionScroll = () => {
     return () => {
       for (const name of USER_INPUT) window.removeEventListener(name, release);
       window.removeEventListener("scroll", onScroll);
+      resize?.disconnect();
     };
   }, [pinned]);
   return pinned;

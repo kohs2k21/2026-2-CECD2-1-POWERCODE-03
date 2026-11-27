@@ -196,7 +196,8 @@ await act(async () => renderer.unmount());
   assert.deepEqual(view.toJSON().children, ["B"], "the new screen replaces the old one at once (no DOM: no copy)");
   let ran = 0;
   afterPageSwap(() => (ran += 1));
-  assert.equal(ran, 1, "no transition pending: runs at once");
+  await Promise.resolve();
+  assert.equal(ran, 1, "no transition pending: runs right after this commit");
   await act(async () => view.unmount());
 }
 

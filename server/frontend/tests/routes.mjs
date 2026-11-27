@@ -488,24 +488,47 @@ for (const [path, search, expected] of legacy) {
   client.clear();
 }
 // 화면 전환(ui.md "움직임" 화면 전환, PageFade): 효과가 켜지는 환경(문서·프레임 함수·Element.animate, 본문 상자는 가짜 DOM)에서 실제 appRoutes로.
-// 이전 화면은 키가 바뀐 커밋에서 바로 내려가고 DOM 정적 사본만 남는다(가짜 애니메이션은 끝나지 않음 = 사본이 계속 사라지는 중).
-// 그동안 이전 화면에서 나오는 이동·조회가 없어야 하고, replace 이동은 효과(사본)가 없어야 한다.
+// 이전 화면은 키가 바뀐 커밋에서 바로 내려가고 DOM 정적 사본만 남는다. 가짜 애니메이션은 짧게 끝난다(onfinish 호출) — 사본 제거·새 화면 투명 해제·대기 처리 순서를 본다.
 {
   const saved = { document: globalThis.document, Element: globalThis.Element, getComputedStyle: globalThis.getComputedStyle,
-    raf: globalThis.window.requestAnimationFrame, caf: globalThis.window.cancelAnimationFrame };
+    raf: globalThis.window.requestAnimationFrame, caf: globalThis.window.cancelAnimationFrame, scrollTo: globalThis.window.scrollTo };
+  const seq = [];
   const copies = [];
-  const animation = () => ({ cancel() {}, onfinish: null });
-  const fakeCopy = () => ({ style: {}, removeAttribute() {}, setAttribute() {}, querySelectorAll: () => [], animate: animation, remove() {} });
-  const fakeHost = { style: {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), cloneNode: () => fakeCopy(), animate: animation };
-  const nodeMock = { createNodeMock: (element) => (element.type === "div" && element.props["data-page-fade"] !== undefined ? fakeHost : null) };
+  // 끝나는 가짜 애니메이션: finishAll()이 진행 중인 것을 끝낸다(onfinish 호출). settle()도 끝낸다.
+  let running = [];
+  const animation = (label) => {
+    const run = { cancelled: false, onfinish: null, cancel() { run.cancelled = true; } };
+    running.push(run);
+    seq.push(`animate ${label}`);
+    return run;
+  };
+  const finishAll = async () => {
+    for (let round = 0; round < 3; round++) {
+      const now = running;
+      running = [];
+      await act(async () => now.forEach((run) => !run.cancelled && run.onfinish?.()));
+    }
+  };
+  const fakeCopy = () => {
+    const copy = { style: {}, removed: false, removeAttribute() {}, setAttribute() {}, querySelectorAll: () => [], animate: () => animation("copy-out"),
+      remove() { copy.removed = true; seq.push("copy removed"); } };
+    return copy;
+  };
+  const host = { style: {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), cloneNode: () => fakeCopy(), animate: () => animation("host-in") };
+  const area = { scrollIntoView: () => seq.push("area") };
+  const isWorkArea = (element) => element.type === "div" && element.props.children?.props?.id && ["evaluations-new", "models-train"].includes(element.props.children.props.id);
+  const nodeMock = { createNodeMock: (element) => (element.type === "div" && element.props["data-page-fade"] !== undefined ? host : isWorkArea(element) ? area : null) };
   globalThis.Element = class {};
-  globalThis.Element.prototype.animate = () => animation();
-  globalThis.document = { documentElement: {}, body: { appendChild: (node) => copies.push(node) }, getElementById: () => null, querySelectorAll: () => [] };
+  globalThis.Element.prototype.animate = () => animation("element");
+  globalThis.document = { documentElement: { scrollHeight: 2000 }, head: { appendChild() {} }, createElement: () => ({}),
+    body: { appendChild: (node) => { copies.push(node); seq.push("copy added"); } }, getElementById: () => null, querySelectorAll: () => [] };
   globalThis.getComputedStyle = () => ({ opacity: "1", scrollPaddingTop: "0px" });
   globalThis.window.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 16);
   globalThis.window.cancelAnimationFrame = (id) => clearTimeout(id);
+  globalThis.window.scrollTo = (_x, y) => seq.push(`top ${y}`);
   const settle = async () => {
-    for (let i = 0; i < 6; i++) await tick();
+    for (let i = 0; i < 8; i++) await tick();
+    await finishAll();
   };
   try {
     // 1) 옛 주소 넘김(replace): 효과 없이 바로, 넘긴 주소 그대로
@@ -517,15 +540,25 @@ for (const [path, search, expected] of legacy) {
       assert.equal(copies.length, 0, "replace navigation has no fade copy");
       await app.cleanup();
     }
-    // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황(사본이 사라지는 중) → 뒤로
+    // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황 → 뒤로. 사본이 지워지고 새 화면 투명이 풀리며, 기다리던 처리는 사본이 지워진 뒤 실행된다.
     {
+      const { afterPageSwap } = await import("../src/components/layout/PageFade.tsx");
       const app = await mount("/detection/models?tab=all", "admin", nodeMock);
       copies.length = 0;
+      seq.length = 0;
       await act(async () => app.router.navigate("/operations"));
-      await settle();
+      afterPageSwap(() => seq.push("after swap"));
+      await Promise.resolve(); // 대기 판단(마이크로태스크)이 먼저 돈다
       assert.equal(copies.length, 1, "push navigation fades through a static copy");
-      assert.equal(location(app.router), "/operations", "nothing from the old screen rewrites the new address");
+      assert.equal(host.style.opacity, "0", "new screen is transparent while the copy fades");
       assert.equal(app.h1().includes("머신러닝 모델"), false, "the old screen is not mounted while its copy fades");
+      await finishAll();
+      await act(async () => Promise.resolve());
+      assert.equal(copies[0].removed, true, "the copy is removed after fading");
+      assert.equal(host.style.opacity, "", "the new screen is no longer transparent");
+      assert.ok(seq.indexOf("copy removed") >= 0 && seq.indexOf("copy removed") < seq.indexOf("after swap"), `waiting work runs after the copy is gone: ${seq.join(" > ")}`);
+      assert.ok(seq.indexOf("after swap") < seq.indexOf("animate host-in"), `then the new screen fades in: ${seq.join(" > ")}`);
+      assert.equal(location(app.router), "/operations", "nothing from the old screen rewrites the new address");
       await act(async () => app.router.navigate(-1));
       await settle();
       assert.equal(location(app.router), "/detection/models?tab=all", "back returns to the same tab");
@@ -553,7 +586,30 @@ for (const [path, search, expected] of legacy) {
       assert.equal(location(app.router), "/operations");
       await app.cleanup();
     }
-    // 5) 이전 화면에서 나오는 이동이 구조적으로 없다: 키가 바뀐 커밋에서 이전 화면이 내려가고, 그 뒤 이전 화면 effect는 다시 돌지 않는다
+    // 5) 탐지 설정 안 경로 이동의 스크롤: 맨 위 올리기는 사본을 기다리지 않고 바로, 작업 영역 스크롤(step 주소)이 그 뒤에 이긴다.
+    //    push 직후 replace가 와도 맨 위 올리기는 이미 끝났다.
+    {
+      const app = await mount("/detection/rules", "admin", nodeMock);
+      await settle();
+      seq.length = 0;
+      await act(async () => app.router.navigate("/detection/evaluations?step=1"));
+      const top = seq.indexOf("top 0");
+      assert.ok(top >= 0 && (seq.indexOf("copy removed") < 0 || top < seq.indexOf("copy removed")), `top scroll does not wait for the copy: ${seq.join(" > ")}`);
+      assert.ok(seq.indexOf("area") > top, `the work area scroll wins after it: ${seq.join(" > ")}`);
+      await settle();
+      assert.equal(seq.filter((item) => item === "top 0").length, 1, "no late top scroll after the copy is gone");
+      await act(async () => app.router.navigate("/detection/rules"));
+      await settle();
+      seq.length = 0;
+      await act(async () => {
+        await app.router.navigate("/detection/operations/replace?step=2");
+        await app.router.navigate("/detection/operations/replace?step=1", { replace: true });
+      });
+      await settle();
+      assert.ok(seq.includes("top 0"), `push then replace still starts at the top: ${seq.join(" > ")}`);
+      await app.cleanup();
+    }
+    // 6) 이전 화면에서 나오는 이동이 구조적으로 없다: 키가 바뀐 커밋에서 이전 화면이 내려가고, 그 뒤 이전 화면 effect는 다시 돌지 않는다
     //    (이탈 확인 "버리고 이동"으로 초안이 지워지거나 조회 응답이 늦게 와도 이전 화면이 단계 정규화로 주소를 되돌리지 못한다)
     {
       const { PageFade } = await import("../src/components/layout/PageFade.tsx");
@@ -590,7 +646,6 @@ for (const [path, search, expected] of legacy) {
       assert.equal(copies.length, 1, "copy shown while fading");
       assert.ok(log.includes("old unmount"), "old screen unmounted in the same commit");
       const count = log.length;
-      // 이전 화면이 남아 있었다면 늦은 응답·상태 변화로 effect가 돌아 주소를 되돌렸을 것
       await act(async () => late?.(1));
       await settle();
       assert.equal(log.length, count, "no old-screen effect after the switch");
@@ -607,8 +662,10 @@ for (const [path, search, expected] of legacy) {
     if (saved.getComputedStyle === undefined) delete globalThis.getComputedStyle;
     globalThis.window.requestAnimationFrame = saved.raf;
     globalThis.window.cancelAnimationFrame = saved.caf;
+    globalThis.window.scrollTo = saved.scrollTo;
     if (!saved.raf) delete globalThis.window.requestAnimationFrame;
     if (!saved.caf) delete globalThis.window.cancelAnimationFrame;
+    if (!saved.scrollTo) delete globalThis.window.scrollTo;
   }
 }
 
@@ -617,5 +674,5 @@ assert.ok(
   "only same-origin API paths are requested: " + [...new Set(requested)].join(", "),
 );
 console.log(
-  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title, page fade through a static copy (old screen unmounted at once: no rewrite, no extra read, no navigation; replace without fade)",
+  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title, page fade through a static copy (old screen unmounted at once: no rewrite, no extra read, no navigation; replace without fade; copy removed, new screen visible, waiting work after the copy; top scroll at once, work area scroll wins)",
 );

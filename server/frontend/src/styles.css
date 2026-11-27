@@ -11,8 +11,6 @@
     @apply border-border outline-ring/50;
   }
   html {
-    /* 스크롤 막대 자리를 늘 비워 둔다(사용자 11/28): 화면·분류마다 내용 길이가 달라 막대가 생겼다 사라져도 본문 폭이 같다. 겹쳐 그리는 막대(휴대폰)는 영향 없음 */
-    scrollbar-gutter: stable;
     scroll-padding-top: calc(var(--top-nav-offset) + var(--sticky-block-height) + 0.5rem);
     font-family: var(--font-sans);
     font-synthesis: none;
@@ -23,11 +21,21 @@
     @apply bg-background text-foreground min-w-80;
   }
   /*
-    대화상자 스크롤 잠금(Radix · react-remove-scroll-bar)은 사라지는 스크롤 막대 폭만큼 body 오른쪽 여백을 더한다.
-    막대 자리를 늘 비워 두므로(scrollbar-gutter: stable) 그 여백이 겹쳐 본문이 밀린다 — 더하지 않는다(선택자 특이도를 높여 주입 스타일보다 앞선다).
+    스크롤 막대 자리를 늘 비워 둔다(사용자 11/28): 화면·분류마다 내용 길이가 달라 막대가 생겼다 사라져도 본문 폭이 같다. 겹쳐 그리는 막대(휴대폰)는 영향 없음.
+    대화상자 스크롤 잠금(Radix · react-remove-scroll-bar)은 사라지는 막대 폭만큼 body 오른쪽 여백을 더하는데, 막대 자리가 이미 비어 있어 그 여백이 겹쳐
+    본문이 밀린다 — 더하지 않는다(선택자 특이도를 높여 주입 스타일보다 앞선다). 지원하지 않는 브라우저는 둘 다 적용하지 않는다(기존 잠금 동작 그대로).
   */
-  html body[data-scroll-locked] {
-    margin-right: 0 !important;
+  @supports (scrollbar-gutter: stable) {
+    html {
+      scrollbar-gutter: stable;
+    }
+    html body[data-scroll-locked] {
+      margin-right: 0 !important;
+    }
+    /* 비워 둔 막대 자리는 내용이 덮을 수 없어 문서 바탕색이 보인다 — 대화상자가 열린 동안 그 자리를 대화상자 배경을 바탕 위에 겹친 색(--overlay-on-background)으로. */
+    html:has([data-slot="dialog-overlay"][data-state="open"]) {
+      background-color: var(--overlay-on-background);
+    }
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;

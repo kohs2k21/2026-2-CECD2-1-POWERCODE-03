@@ -29,6 +29,8 @@
   --info-text: #0761d1;
   --violet: #7928ca;
   --overlay: rgb(0 0 0 / 35%);
+  /* 대화상자 배경(--overlay)을 바탕(--canvas-soft) 위에 겹친 불투명 색: 비워 둔 스크롤 막대 자리 칠하기용(styles.css) */
+  --overlay-on-background: color-mix(in srgb, var(--canvas-soft) 65%, rgb(0 0 0));
 
   /* 2) shadcn 의미 변수 */
   --background: var(--canvas-soft);

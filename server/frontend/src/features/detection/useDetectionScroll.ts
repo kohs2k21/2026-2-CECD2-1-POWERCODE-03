@@ -147,7 +147,8 @@ export const scrollToSection = (id: string, { reduce = false, onCancel }: { redu
  * - 경로가 바뀌었거나 해시만 지운 이동이면 맨 위로. 쿼리만 바뀐 이동(탭·단계)은 그대로 둔다
  * - 브라우저 뒤로/앞으로(POP)는 건드리지 않는다: 브라우저 기본 위치 복원을 따른다
  * - 맨 위로 올리기는 바로(화면 전환 사본은 화면 기준 고정이라 튀지 않음). 영역까지 부드러운 이동만 같은 커밋의 화면 전환 사본이 사라진 뒤 시작하고,
- *   그 기다림 동안도 "이 모듈이 움직이는 중"이다(맨 위로 올리기가 만든 스크롤로 목차 고정이 풀리지 않게). 기다리는 중 사용자가 움직이면 멈추고 고정이 풀린다
+ *   그 기다림 동안도 "이 모듈이 움직이는 중"이다(맨 위로 올리기·작업 영역 스크롤이 만든 스크롤로 목차 고정이 풀리지 않게). 기다리는 중에는
+ *   휠·터치·키·누르기 입력으로만 멈추고 고정이 풀린다(막대 끌기는 이동이 시작된 뒤 잡는다)
  * 반환값 pinned: 목차로 이동 중·이동한 영역(목차 현재 표시 고정 — 지나가는 영역으로 표시가 튀지 않게). 사용자가 직접 스크롤하면 풀린다.
  */
 export const useDetectionScroll = () => {
@@ -180,29 +181,22 @@ export const useDetectionScroll = () => {
     if (before && pathChanged) window.scrollTo(0, 0);
     setPinned(target);
     let stop = () => {};
-    // 기다리는 동안: 움직이는 중으로 두고, 사용자 입력(휠·터치·키·누름) 또는 이 모듈이 둔 위치에서 벗어난 스크롤(막대 끌기)이면 멈추고 고정을 푼다.
+    // 기다리는 동안: 움직이는 중으로 두고, 사용자 입력(휠·터치·키·누름)이면 멈추고 고정을 푼다. 위치 변화로는 판단하지 않는다 —
+    // 새 화면의 작업 영역 스크롤(주소의 step)도 이 사이에 위치를 바꾸기 때문. 막대 끌기는 부드러운 스크롤이 시작된 뒤 잡는다.
     driving += 1;
     let holding = true;
-    const expected = window.scrollY;
-    const height = document.documentElement?.scrollHeight ?? 0;
     const endHold = () => {
       if (!holding) return;
       holding = false;
       driving -= 1;
       for (const name of USER_INPUT) window.removeEventListener(name, userCancel);
-      window.removeEventListener("scroll", onHoldScroll);
     };
     function userCancel() {
       endHold();
       unwait();
       setPinned(null);
     }
-    function onHoldScroll() {
-      const sameHeight = (document.documentElement?.scrollHeight ?? 0) === height;
-      if (sameHeight && Math.abs(window.scrollY - expected) > 2) userCancel();
-    }
     for (const name of USER_INPUT) window.addEventListener(name, userCancel, { passive: true });
-    window.addEventListener("scroll", onHoldScroll, { passive: true });
     const unwait = afterPageSwap(() => {
       // 넘겨주기: 부드러운 스크롤이 먼저 움직이는 중 표시를 올린 뒤 기다림 표시를 내린다(사이에 빈틈이 없게).
       stop = scrollToSection(target, { reduce, onCancel: () => setPinned(null) });

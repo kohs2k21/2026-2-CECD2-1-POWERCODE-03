@@ -531,14 +531,24 @@ for (const [path, search, expected] of legacy) {
     return host;
   };
   const transparent = () => hosts.filter((host) => host.style.opacity === "0").length;
-  const area = { scrollIntoView: () => seq.push("area") };
+  // 작업 영역(step 주소): areaMoves면 실제처럼 그 영역으로 위치를 바꾸고 scroll 이벤트를 보낸다.
+  let areaMoves = false;
+  const area = { scrollIntoView: () => {
+    seq.push("area");
+    if (!areaMoves) return;
+    areaMoves = false; // 한 번만(대기 중 첫 작업 영역 스크롤) — 조회가 끝나 단계가 다시 그려질 때의 두 번째 호출은 시점이 일정하지 않다
+    globalThis.window.scrollY = 900;
+    setTimeout(() => fire("scroll"), 0);
+  } };
   const isWorkArea = (element) => element.type === "div" && element.props.children?.props?.id && ["evaluations-new", "models-train"].includes(element.props.children.props.id);
   const nodeMock = { createNodeMock: (element) => (element.type === "div" && element.props["data-page-fade"] !== undefined ? makeHost() : isWorkArea(element) ? area : null) };
   // 목차 영역(룰 설정 화면의 SectionCard id): 지금 그려진 화면(viewing)에 그 id가 있으면 가짜 요소. 문서 기준 위치 = 순서 × 300, 화면 기준 top = 문서 기준 − scrollY
   const sectionIds = ["rules-hard", "rules-soft", "rules-relation", "rules-protocols", "rules-response-codes", "rules-candidates", "rules-history"];
+  // 평가 결과 화면: 비교 평가 목록 300, 새 비교 평가(작업 영역) 900
+  const positions = { ...Object.fromEntries(sectionIds.map((id, index) => [id, index * 300])), "evaluations-list": 300, "evaluations-new": 900 };
   let viewing = null;
-  const sections = new Map(sectionIds.map((id) => [id, { id, contains: () => false, compareDocumentPosition: () => 0,
-    getBoundingClientRect: () => ({ top: sectionIds.indexOf(id) * 300 - globalThis.window.scrollY, height: 280 }) }]));
+  const sections = new Map(Object.keys(positions).map((id) => [id, { id, contains: () => false, compareDocumentPosition: () => 0,
+    getBoundingClientRect: () => ({ top: positions[id] - globalThis.window.scrollY, height: 280 }) }]));
   const sectionById = (id) => (viewing && sections.has(id) && viewing.root.findAll((node) => node.type === "div" && node.props.id === id).length ? sections.get(id) : null);
   globalThis.Element = class {};
   globalThis.Element.prototype.animate = () => animation("element");
@@ -731,6 +741,70 @@ for (const [path, search, expected] of legacy) {
       assert.notEqual(copies[1].from, copies[0].from, "inner and outer boxes are separate");
       assert.equal(copies[1].from.style.opacity, "", "the outer box is visible again");
       await app.cleanup();
+    }
+    // 11) 하위 화면(평가 상세)에서 `?step=1#영역`으로 돌아감: 새 화면의 작업 영역 스크롤(step)이 대기 중에 위치를 바꾸고 scroll 이벤트를 보내도
+    //     목차 고정·부드러운 스크롤이 풀리지 않고, 사본이 지워진 뒤 해시 영역(비교 평가 목록)에 도착한다.
+    {
+      const app = await mount("/detection/rules/candidates", "admin", nodeMock);
+      viewing = app.renderer;
+      await settle();
+      globalThis.window.scrollY = 400;
+      areaMoves = true;
+      seq.length = 0;
+      const current = () => app.renderer.root.findAll((n) => n.type === "a" && n.props["aria-current"] === "location").map((n) => n.props.href);
+      await act(async () => app.router.navigate("/detection/evaluations?step=1#evaluations-list"));
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 150)));
+      assert.ok(seq.includes("area") && !areaMoves, `the work area scrolled while waiting: ${seq.join(" > ")}`);
+      assert.deepEqual(current(), ["/detection/evaluations?step=1#evaluations-list"], "still pinned after the work area scroll");
+      await finishAll();
+      for (let i = 0; i < 400 && Math.abs(globalThis.window.scrollY - 300) > 1; i++) await tick();
+      assert.equal(Math.round(globalThis.window.scrollY), 300, "arrives at the hash section, not the work area");
+      assert.deepEqual(current(), ["/detection/evaluations?step=1#evaluations-list"], "the hash section is current");
+      areaMoves = false;
+      await app.cleanup();
+      viewing = null;
+    }
+    // 12) 대기 중 휠: 멈추고 고정이 풀린다(사본이 지워져도 부드러운 스크롤이 시작되지 않음)
+    {
+      extraFetch = ruleSetFetch;
+      const app = await mount("/detection/rules/candidates", "admin", nodeMock);
+      viewing = app.renderer;
+      await settle();
+      globalThis.window.scrollY = 400;
+      seq.length = 0;
+      const current = () => app.renderer.root.findAll((n) => n.type === "a" && n.props["aria-current"] === "location").map((n) => n.props.href);
+      await act(async () => app.router.navigate("/detection/rules#rules-history"));
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 60)));
+      await act(async () => fire("wheel"));
+      await finishAll();
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 200)));
+      assert.equal(seq.includes("scroll"), false, `no smooth scroll after the wheel: ${seq.join(" > ")}`);
+      assert.notDeepEqual(current(), ["/detection/rules#rules-history"], "pin released by the wheel");
+      await app.cleanup();
+      extraFetch = null;
+      viewing = null;
+    }
+    // 13) 대기 중 다른 이동으로 정리되면 "움직이는 중" 표시도 내린다: 다음 이동이 끝난 뒤 사용자 스크롤(막대 끌기 — 입력 이벤트 없음)에 현재 표시가 따라온다
+    {
+      extraFetch = ruleSetFetch;
+      const app = await mount("/detection/rules/candidates", "admin", nodeMock);
+      viewing = app.renderer;
+      await settle();
+      globalThis.window.scrollY = 400;
+      const current = () => app.renderer.root.findAll((n) => n.type === "a" && n.props["aria-current"] === "location").map((n) => n.props.href);
+      await act(async () => app.router.navigate("/detection/rules#rules-history")); // 사본 대기 중
+      await act(async () => app.router.navigate("/detection/rules#rules-soft", { replace: true })); // 같은 화면 목차 — 앞 대기를 정리
+      await finishAll();
+      for (let i = 0; i < 400 && Math.abs(globalThis.window.scrollY - 300) > 1; i++) await tick();
+      assert.deepEqual(current(), ["/detection/rules#rules-soft"], "arrived and pinned");
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 1400))); // 도착 뒤 맞춤(1.2초)이 끝날 때까지
+      globalThis.window.scrollY = 1800; // 막대 끌기(입력 이벤트 없음)
+      await act(async () => fire("scroll"));
+      for (let i = 0; i < 20 && current()[0] !== "/detection/rules#rules-history"; i++) await tick();
+      assert.deepEqual(current(), ["/detection/rules#rules-history"], "the current section follows the user's scroll");
+      await app.cleanup();
+      extraFetch = null;
+      viewing = null;
     }
     // 6) 이전 화면에서 나오는 이동이 구조적으로 없다: 키가 바뀐 커밋에서 이전 화면이 내려가고, 그 뒤 이전 화면 effect는 다시 돌지 않는다
     //    (이탈 확인 "버리고 이동"으로 초안이 지워지거나 조회 응답이 늦게 와도 이전 화면이 단계 정규화로 주소를 되돌리지 못한다)

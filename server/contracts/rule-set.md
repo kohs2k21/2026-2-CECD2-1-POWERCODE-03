@@ -61,7 +61,7 @@ Status: draft
   "savedAt": "2026-11-02T08:12:33Z",
   "savedBy": {"actorId": "admin-01", "displayName": "관리자"},
   "restoredFromRevision": null,
-  "catalogVersion": "method-catalog-v2",
+  "catalogVersion": "method-catalog-v3",
   "counts": {"hardEnabled": 4, "hardTotal": 4, "softEnabled": 1, "softTotal": 2},
   "hardRules": [
     {"id": "hard:process-status", "methodVersion": "process-status-hr-v2", "displayName": "상태가 S가 아님", "conditionText": "STATUS ≠ S",

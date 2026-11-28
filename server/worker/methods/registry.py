@@ -1,6 +1,8 @@
-"""방법 레지스트리 — `server/contracts/method-catalog.md` v2의 Python 원본.
+"""방법 레지스트리 — `server/contracts/method-catalog.md` v3의 Python 원본.
 
 - 소프트룰 등록 필드 6종(`SoftRuleField`)과 ML 방법 목록(`MlMethod`, 전부 `ml:*`)을 dataclass로 든다.
+- ML 방법의 틀(`frame`)·결과 코드(`resultCode`)는 손으로 적지 않고 `inputRequirements.unit`·`methodId`에서
+  만든다(method-catalog.md "틀·결과 코드·틀별 추천" 절). `validate_catalog`가 생성물의 규칙을 검사한다.
 - 하드룰 목록은 Detector 소유(detection-decision.md)이므로 읽기 전용 참조 상수만 둔다.
 - `python -m methods.registry --write`가 `server/contracts/method-catalog.json`을 생성한다(빌드 산출물,
   schema `method-catalog.schema.json` 통과본). API는 그 JSON을 읽는다.
@@ -21,7 +23,7 @@ from typing import Any, Callable, Mapping
 
 import derived_expression
 
-CATALOG_VERSION = "method-catalog-v2"
+CATALOG_VERSION = "method-catalog-v3"
 # 계약 예시·sourceRef 줄 번호의 근거 코드 ref(method-catalog.md "근거 코드 origin/dev 7f24e03").
 # 생성 JSON을 결정적으로(커밋본 == 재생성본) 두기 위해 실행 시점의 git ref를 읽지 않는다.
 CATALOG_SOURCE_REF = "7f24e03"
@@ -44,9 +46,43 @@ SOFT_RULE = {"displayName": CATEGORY_DISPLAY_NAMES["soft"],
 SOFT_OPERATORS = ("gte", "gt", "lte", "lt")
 MISSING_POLICIES = ("not_applicable", "unavailable")
 
+# 이상 ML 두 틀(method-catalog.md "틀·결과 코드·틀별 추천" 절). 틀은 입력 단위에서 1:1로 정해진다.
+FRAMES = ("row", "trend")
+FRAME_BY_UNIT = {"process_row": "row", "aggregated_window": "trend"}
+TREND_METHOD_PREFIX = "ml:trend-"
+# `ml:trend-` 접두 없이 frame=trend인 기존 연구 항목. 실행할 수 없는 동안만 허용하고, 실행 가능해질 때
+# `ml:trend-<algo>`로 다시 등재한다. 새 항목을 여기에 더하지 않는다.
+TREND_PREFIX_LEGACY = frozenset({"ml:eif"})
+# 결과 코드 기계 규칙 `ML_<modelKey 대문자, '-'→'_'>`의 호환 예외(과거 판정 행·화면·집계). 이 하나뿐이다.
+RESULT_CODE_EXCEPTIONS = {"ml:iforest": "IF_ANOMALY"}
+# 틀 이름(잠정)과 틀별 추천. 추천은 그 틀에서 실행 가능한 방법을 넣는 변경에서만 채운다(그 전 null).
+FRAME_ENTRIES: dict[str, dict[str, Any]] = {
+    "row": {"displayName": "행 단위 모델", "recommendedMethodId": None, "recommendedParameters": None, "evidence": None},
+    "trend": {"displayName": "시계열 모델", "recommendedMethodId": None, "recommendedParameters": None, "evidence": None},
+}
+FRAME_EVIDENCE_KEYS = ("reportRef", "evaluationSet", "metric", "decidedAt")
+
 
 class MethodParameterError(ValueError):
     """`parameters`가 카탈로그 `parameterSchema`에 맞지 않는다."""
+
+
+class CatalogRuleError(ValueError):
+    """생성한 카탈로그가 틀·결과 코드·추천 규칙을 어긴다(오류 코드 `규칙:식별자`)."""
+
+
+def frame_for_unit(unit: str) -> str:
+    """`inputRequirements.unit` → 틀. 대응이 없는 단위는 틀을 지어내지 않고 실패한다."""
+    if unit not in FRAME_BY_UNIT:
+        raise CatalogRuleError(f"frame_unit_unknown:{unit}")
+    return FRAME_BY_UNIT[unit]
+
+
+def result_code_for(method_id: str) -> str:
+    """ML 방법 결과 코드. `ml:lof` → `ML_LOF`, `ml:trend-iforest` → `ML_TREND_IFOREST`, 예외는 `ml:iforest`뿐."""
+    if method_id in RESULT_CODE_EXCEPTIONS:
+        return RESULT_CODE_EXCEPTIONS[method_id]
+    return "ML_" + method_id.split(":", 1)[1].upper().replace("-", "_")
 
 
 def _column(column: str) -> dict[str, Any]:
@@ -215,6 +251,14 @@ class MlMethod:
     def executable_process(self) -> bool:
         return bool(self.executable.get("process")) and self.adapter is not None
 
+    @property
+    def frame(self) -> str:
+        return frame_for_unit(self.input_requirements["unit"])
+
+    @property
+    def result_code(self) -> str:
+        return result_code_for(self.method_id)
+
     def resolve_parameters(self, parameters: Mapping[str, Any] | None = None) -> dict[str, Any]:
         """기본값 위에 요청 값을 얹고 `parameterSchema`로 검증한다. 미지정 키는 기본값."""
         if parameters is None:
@@ -227,8 +271,9 @@ class MlMethod:
 
     def to_catalog(self) -> dict[str, Any]:
         return _compact({
-            "methodId": self.method_id, "kind": self.kind, "category": self.category,
+            "methodId": self.method_id, "kind": self.kind, "category": self.category, "frame": self.frame,
             "displayName": self.display_name, "status": self.status, "methodVersion": self.method_version,
+            "resultCode": self.result_code,
             "uiTarget": self.ui_target, "executable": self.executable, "executableReason": self.executable_reason,
             "runtime": self.runtime, "parameterSchema": self.parameter_schema,
             "parameterSchemaStatus": self.parameter_schema_status, "defaults": self.defaults,
@@ -374,16 +419,108 @@ def iforest_parameters(parameters: Mapping[str, Any] | None = None) -> dict[str,
     return ML_METHODS_BY_ID["ml:iforest"].resolve_parameters(parameters)
 
 
+def _executable_in_frame(item: Mapping[str, Any], frame: str) -> bool:
+    """그 틀에서 실행 가능한가. 행 = `executable.process`. 시계열은 서버 실행 경로(`executable.trend`)가 아직 없어 항상 거짓."""
+    if frame == "row":
+        return item.get("executable", {}).get("process") is True
+    return False
+
+
+def _check_frame_entry(frame: str, entry: Mapping[str, Any], methods: Mapping[str, Mapping[str, Any]]) -> None:
+    if not isinstance(entry, Mapping) or set(entry) != {"displayName", "recommendedMethodId", "recommendedParameters", "evidence"}:
+        raise CatalogRuleError(f"frame_entry_invalid:{frame}")
+    if not isinstance(entry["displayName"], str) or not entry["displayName"].strip():
+        raise CatalogRuleError(f"frame_display_name_missing:{frame}")
+    method_id, parameters, evidence = entry["recommendedMethodId"], entry["recommendedParameters"], entry["evidence"]
+    if method_id is None:
+        if parameters is not None or evidence is not None:
+            raise CatalogRuleError(f"frame_recommendation_incomplete:{frame}")
+        return
+    if parameters is None or evidence is None:
+        raise CatalogRuleError(f"frame_recommendation_incomplete:{frame}")
+    method = methods.get(method_id)
+    if method is None:
+        raise CatalogRuleError(f"frame_recommendation_unknown:{frame}")
+    if method.get("frame") != frame:
+        raise CatalogRuleError(f"frame_recommendation_frame_mismatch:{frame}")
+    if not _executable_in_frame(method, frame):
+        raise CatalogRuleError(f"frame_recommendation_not_executable:{frame}")
+    try:
+        validate_parameters(method["parameterSchema"], parameters)
+    except MethodParameterError as exc:
+        raise CatalogRuleError(f"frame_recommendation_parameters_invalid:{frame}") from exc
+    if not isinstance(evidence, Mapping) or set(evidence) != set(FRAME_EVIDENCE_KEYS) or \
+            not all(isinstance(evidence[key], str) and evidence[key].strip() for key in FRAME_EVIDENCE_KEYS):
+        raise CatalogRuleError(f"frame_recommendation_evidence_invalid:{frame}")
+
+
+def validate_catalog(catalog: Mapping[str, Any]) -> None:
+    """틀·결과 코드·틀별 추천 규칙(method-catalog.md "틀·결과 코드·틀별 추천" 절). 위반이면 `CatalogRuleError`.
+
+    - 방법마다 `frame` = `FRAME_BY_UNIT[inputRequirements.unit]`(1:1)
+    - `ml:trend-` 접두 ⇔ `frame=trend`. 예외는 `TREND_PREFIX_LEGACY` 항목이 실행할 수 없는 동안뿐
+    - `resultCode` = 기계 규칙(예외는 `RESULT_CODE_EXCEPTIONS` 하나), 카탈로그 전체에서 유일
+    - `frames`는 두 틀 정확히, 틀마다 이름 1개·추천 0..1(같은 틀·그 틀에서 실행 가능한 방법만)
+    """
+    methods: dict[str, Mapping[str, Any]] = {}
+    codes: dict[str, str] = {}
+    for item in catalog["methods"]:
+        method_id = item["methodId"]
+        if method_id in methods:
+            raise CatalogRuleError(f"method_duplicate:{method_id}")
+        methods[method_id] = item
+        frame = item.get("frame")
+        if frame != frame_for_unit(item["inputRequirements"]["unit"]):
+            raise CatalogRuleError(f"frame_unit_mismatch:{method_id}")
+        prefixed = method_id.startswith(TREND_METHOD_PREFIX)
+        legacy = (method_id in TREND_PREFIX_LEGACY and frame == "trend" and item["status"] != "supported"
+                  and not any(item["executable"].values()))
+        if prefixed != (frame == "trend") and not legacy:
+            raise CatalogRuleError(f"trend_prefix_mismatch:{method_id}")
+        code = item.get("resultCode")
+        if code != result_code_for(method_id):
+            raise CatalogRuleError(f"result_code_mismatch:{method_id}")
+        if code in codes:
+            raise CatalogRuleError(f"result_code_duplicate:{code}")
+        codes[code] = method_id
+    frames = catalog.get("frames")
+    if not isinstance(frames, Mapping) or set(frames) != set(FRAMES):
+        raise CatalogRuleError("frames_invalid")
+    for frame in FRAMES:
+        _check_frame_entry(frame, frames[frame], methods)
+
+
+def frame_changes(previous: Mapping[str, Any] | None, current: Mapping[str, Any]) -> list[str]:
+    """직전 카탈로그(커밋본)와 비교해 `frame`이 바뀐 `methodId` 목록. 틀을 바꾸려면 새 `methodId`를 쓴다.
+
+    `frame` 키가 없는 이전 판(v2)은 같은 1:1 규칙으로 `inputRequirements.unit`에서 읽는다.
+    """
+    def frames_of(catalog: Mapping[str, Any] | None) -> dict[str, str | None]:
+        found: dict[str, str | None] = {}
+        methods = catalog.get("methods") if isinstance(catalog, Mapping) else None
+        for item in methods if isinstance(methods, list) else []:
+            if isinstance(item, Mapping) and isinstance(item.get("methodId"), str):
+                unit = (item.get("inputRequirements") or {}).get("unit")
+                found[item["methodId"]] = item.get("frame", FRAME_BY_UNIT.get(unit))
+        return found
+
+    before, after = frames_of(previous), frames_of(current)
+    return [method_id for method_id, frame in before.items() if method_id in after and after[method_id] != frame]
+
+
 def build_catalog() -> dict[str, Any]:
-    return {
+    catalog = {
         "catalogVersion": CATALOG_VERSION,
         "generatedFrom": {"gitRef": CATALOG_SOURCE_REF},
         "categoryDisplayNames": dict(CATEGORY_DISPLAY_NAMES),
         "hardRules": dict(HARD_RULES),
         "softRule": json.loads(json.dumps(SOFT_RULE)),
         "softRuleFields": [item.to_catalog() for item in SOFT_RULE_FIELDS],
+        "frames": json.loads(json.dumps(FRAME_ENTRIES)),
         "methods": [item.to_catalog() for item in ML_METHODS],
     }
+    validate_catalog(catalog)
+    return catalog
 
 
 def render_catalog(catalog: Mapping[str, Any] | None = None) -> str:
@@ -414,6 +551,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"method-catalog.json matches registry: {target}")
         return 0
     if args.write:
+        try:
+            previous = json.loads(target.read_text(encoding="utf-8")) if target.exists() else None
+        except ValueError:
+            previous = None
+        changed = frame_changes(previous, build_catalog())
+        if changed:
+            print("method frame changed (use a new methodId): " + ",".join(changed), file=sys.stderr)
+            return 1
         print(f"wrote {write_catalog(target)}")
         return 0
     sys.stdout.write(render_catalog())

@@ -10,6 +10,7 @@
   - **[코드]**: 현재 코드 사실(file:line)
   - **[제안 Dn]**: Detector가 정하는 기술 항목(Detector 결정, 사용자 결정 아님). 17.2에 정보로 제공하며 이견이 없으면 이대로 진행
   - **[#94]**: Trainer Issue #94(룰·모델 분리 계약)가 정하는 항목. 이 문서는 참조만 한다
+  - **[확정 11/28 C31 — 구현 전]**: 사용자 11/28 결정(이상 ML 두 틀)으로 바뀐 규칙. 계약은 확정이고 Detector·API 코드는 아직 이전 규칙이며 후속 구현 변경에서 적용한다
   - **[#112 정정 11/04]**: #112 구현 확인 정정 11/04 사용자 승인. 구현 중 확인한 어긋남을 고친 항목이며 새 결정 번호(C·U)는 아니다. 기술 항목의 정정은 해당 Dn 행에 '#112 구현 확인 반영 11/04'로 적는다(Detector 결정)
 - 범위 밖
   - 룰 세트 저장 형식(리비전 번호·내용 해시·리비전별 스냅샷), 소프트룰 등록 필드 목록·수정 제약, 모델 버전·교체·비교 [#94]
@@ -51,6 +52,7 @@
 | C28 | v04 전환은 환경 변수 `DETECT_JOB_CONTRACT`를 유지한다. API·WebUI 대응, `queues.md` 조율, migration 016 적용이 끝난 뒤 한 번에 전환한다 | 11/05 사용자 결정 |
 | C29 | 활성 모델과 관측의 source가 다르면 그 모델은 `not_configured` 미판정으로 둔다. 다중 출처 운영을 하게 되면 다시 정한다 | 11/05 사용자 결정 |
 | C30 | source 불일치 경고 화면은 개발하지 않는다. 고객사 하나당 시스템 하나라 운영 출처는 하나이고, API·CSV 입력 전환은 같은 source를 쓴다 | 11/05 사용자 결정 |
+| C31 | 이상 ML은 **두 틀** — 행 단위(`row`, PROCESS 판정 1행)·시계열(`trend`, 분 단위 집계 창). 틀은 카탈로그 방법 `frame`(`inputRequirements.unit`에서 1:1, 불변), 활성 집합은 틀당 최대 1. PROCESS 판정의 ML 방법은 **행 틀 모델만**: `n_ml` = 행 틀 모델 수, "탐지 방법 0개" = 행 판정 방법 0개. ML 결과 코드 = 카탈로그 `resultCode`(`ML_<KEY 대문자, -는 _>`, 예외 `ml:iforest` = `IF_ANOMALY`). 시계열 판정(단위·알림)은 별도 계약(후속) | 11/28 사용자 결정(이상 ML 두 틀, Detector·Trainer 권고안 승인) |
 
 - C28의 선행 조건 중 `queues.md` 조율은 #112에서 끝났다(16절). API·WebUI 대응(#125)과 migration 016 적용도 끝나 11/13 Compose 기본값을 `v04`로 바꿨다(`compose.yaml`·`compose.demo.yaml`). 코드 기본(`jobs.py`, 환경 변수 없음)은 `v03` 그대로
 
@@ -86,6 +88,7 @@
 - 하드룰 key는 kebab-case로 정하고 `-<8 hex>`로 끝나지 않게 한다 → evidence `rules[].ruleKey`(접두 없음)에서 소프트룰 key와 겹치지 않음 [제안 D9]
 - 룰 세트 v3(hash 버전 3) 추가 형식 [rule-set.md v3.4, relation-rules.md 2절, protocol-rules.md 4절]: 승인 저장 때 API가 만드는 하드룰 `hard:rel-<8 hex>`(관계 규칙 `relationRules[]`의 판정 kind 셋)·`hard:proto-<8 hex>`(프로토콜 항목 `protocolRules[]`). 소문자 hex 정확히 8자, 전체 일치로만 판별(`hard_rules.py` `is_relation_rule_id`·`is_protocol_rule_id`). `-<8 hex>`로 끝나지만 v3 투영 `rules[]`·`ruleSeverities`에 넣지 않으므로(11.4) D9의 `ruleKey` 충돌은 생기지 않는다. 내장 목록 밖 그 밖의 `hard:*`는 여전히 `hard_rule_unknown:<id>`(시도 실패)
 - `ml:<key>`: ML 모델 방법. 현재 실행 가능은 `ml:iforest`뿐 [코드 `computation.py:35-36`]
+  - 틀 [확정 11/28 C31 — 구현 전]: 행 단위 `ml:<algo>`(기존 id 그대로), 시계열 `ml:trend-<algo>`. 틀은 카탈로그 방법 `frame`(method-catalog.md "틀·결과 코드·틀별 추천" 절). 이 문서의 PROCESS 판정 `methodResults[]` ML 항목은 행 틀 모델뿐이며, 시계열 틀 모델은 PROCESS 판정 방법이 아니다
 - 통계 SR(`sr:*`)은 새 정책에서 쓰지 않는다 [확정 11/02 C2]. `sr:*`는 룰 세트·모델 버전 저장 검증에서 거부한다(오류 코드는 [#94]: 모델 버전 `methods[]`는 `ml:*`만 허용 — 422 `method_kind_not_allowed:<id>`(`model-version.md` 방법 식별자 절). 카탈로그 밖 키의 422 `method_unknown:<id>`는 같은 문서 "(B) 조합 저장" 절에만 있으나 이 절은 폐기(확정 11/02 Q-M1·Q-M5, 기록용). 룰 세트는 422 `hard_rule_unknown:<id>`·`soft_rule_unknown:<id>`(`rule-set.md` "저장 — `PUT /api/rule-set`" 절 검증 표)). Detector가 실행 중 `sr:*`를 만나면 판정 행 없이 시도 실패(fail-closed) [제안 D12]
 
 ### 3.2 과거 판정 읽기용 호환 매핑 [확정 11/03 U1·U6]
@@ -215,6 +218,7 @@
 
 - 방법마다 결과 1개. v04 작업은 활성 집합의 모델마다 방법 1개로 실행한다(`detector/attempt_v04.py`, #112). 실행 어댑터는 `ml:iforest`뿐이고 그 밖의 모델은 `not_executable`이다. v03 작업은 구성당 IF 1개 그대로다 [코드 `computation.py`]
 - 운영 단위 [확정 11/02 C20]: 모델 하나 = 버전 계열 하나, 운영 = **활성 집합 0..N개**(활성화·운영에서 빼기·교체·복원, 활성 집합 리비전 이력 — #94 `model-version.md` "활성 집합 — 활성화·운영에서 빼기·교체·복원" 절). 같은 `modelKey`의 버전은 활성 집합 안에 동시에 1개까지만(위반 저장은 #94 422 `active_model_key_duplicate:<modelKey>`) → `ml:<modelKey>`가 판정 안에서 유일. n_ml = 활성 집합의 모델 수, ML 순서 = 활성 집합 순서(활성화 순서)
+  - 두 틀 [확정 11/28 C31 — 구현 전]: 활성 집합은 **틀당 최대 1**(합계 최대 2, `model-version.md` "두 틀 — 활성 집합 규칙" 절). **n_ml = 행 틀 활성 모델 수**(0 또는 1)이고 ML 방법 결과는 행 틀 모델 1개까지다. 시계열 틀 모델은 실행 검사·모델 읽기·행 과제·비교 평가 종합에 넣지 않는다. 고정 시 스냅샷 `frame`(없으면 `row`) ≠ 카탈로그 `frame`인 행 틀 항목이 있으면 판정 행 없이 시도 실패(원인 `frame_mismatch`, 룰 판정도 멈춤). 지금 코드는 활성 집합 모델 전체를 센다 — 활성화할 수 있는 모델이 `ml:iforest`(`row`)뿐이라 결과는 같다
 - 결과 규칙: 점수가 판정선 방향으로 넘으면 T(`computation.py:139`), 입력·산출물·판정선이 없으면 U(`not_ready`), 계산 오류는 U(`failed`)
 - 미판정 원인: 산출물 파일이 없으면 `not_ready`/`not_configured`, 파일은 있는데 해시·변수 정의가 맞지 않으면 `failed`/`failure`/`artifact_invalid`다. 모델을 읽지 못하면 `not_configured`이고 사유를 `evidence[].reason`에 남긴다. 활성 모델과 관측의 source가 달라도 같다 [확정 11/05 C29, 형식 D21]. ML 입력 결측·변환 실패는 `feature_unavailable`이다 [D22]
 - `scoreDetail` [확정 10/22 C16, 필드 이름 확정 11/03 U10]: `{raw, threshold, direction, thresholdPolicy, normalized}`
@@ -222,7 +226,7 @@
   - `threshold`·`direction`·`thresholdPolicy`: 구성의 `threshold_spec`(`model_adapters.py:143-144`)과 정책 이름(`train-internal-p99-v1`)
   - `normalized`: `{kind: "threshold_ratio", value: raw / threshold}`(`lower_is_anomaly`면 `threshold / raw`). 분모가 0 이하이거나 의미 없는 척도면 `null`
   - 모델 간 정렬·합산·대표값에 쓰지 않는다
-- 결과 코드: 현재 IF의 `IF_ANOMALY`만 정의돼 있다. 후속 메모: IF 외 ML 결과 코드는 둘째 모델 추가 전에 정한다
+- 결과 코드 [확정 11/28 C31 — 구현 전]: T인 ML 방법 결과의 `code` = 카탈로그 방법 항목의 **`resultCode`**. 값은 레지스트리가 기계 규칙 **`ML_<modelKey 대문자, -는 _>`**로 만든다(`ml:lof` → `ML_LOF`, 소프트룰 `SOFT_<KEY>`와 같은 꼴). 예외는 **`ml:iforest` = `IF_ANOMALY` 하나**(과거 판정 행·화면·집계 호환). 결과 코드는 카탈로그 전체에서 유일하고 생성 시험이 고정한다(method-catalog.md "틀·결과 코드·틀별 추천" 절). 이 규칙으로 "IF 외 ML 결과 코드는 둘째 모델 추가 전에 정한다"(이전 후속 메모)를 닫는다. 지금 코드는 고정 사전(`IF_ANOMALY` 하나)을 쓰며 레지스트리 값 읽기는 후속 구현(IF 결과 불변)
 - 위험도: ML은 단계 정의가 없다 [확정 10/22 Q-R4-1·11/02 C17]. T인 ML 결과는 `riskLevel=null`, `riskLevelReason="level_undefined"`, N·U 결과는 둘 다 `null`(9.1 채움 규칙 [제안 D9])
 - `modelVersionId`: 사용한 모델 버전 참조. 모델 버전 식별 형식은 [#94]
 
@@ -357,7 +361,7 @@
 |---|---|
 | 객체가 아님, 키 집합 ≠ `{version, policyKey, k, deadlineMs}`, `version ≠ 2`, `deadlineMs` 범위 밖, `k` 키 집합 ≠ `{hard, soft, ml}`, `k` 값이 정수 아님 | 400 `invalid_detection_policy` |
 | `policyKey`가 내장 목록에 없음 | 422 `unsupported_detection_policy` |
-| 활성 방법 0개(n_hard + n_soft + n_ml = 0) | 422 `detection_methods_empty` |
+| 활성 방법 0개(n_hard + n_soft + n_ml = 0; [확정 11/28 C31 — 구현 전] n_ml은 행 틀 모델 수 — 6절) | 422 `detection_methods_empty` |
 | 1차 구현 [확정 11/03 U4]: 정책 저장에서 `k.hard`·`k.soft`·`k.ml` 중 하나라도 1이 아님 — 그 대분류의 현재 n과 무관하게(n = 0인 대분류 포함) 세 값 모두 검사 | 422 `combination_k_out_of_range:<category>` |
 | 활성 대분류(n_c ≥ 1)에서 k_c < 1 또는 k_c > n_c | 422 `combination_k_out_of_range:<category>` |
 
@@ -366,7 +370,7 @@
   - k > n 검사(표 마지막 행)와 판정 계산(7.3): n_c = 0인 대분류(비활성)의 k_c는 **검사하지 않고 무시**한다(그 대분류는 `skipped`). U4의 "n = 0인 대분류의 k는 무시"는 이 뜻이다. #94 Q-M8의 "`n_ml = 0`이면 `k.ml` 값과 무관하게 허용"도 k > n 검사에 대한 문장이며, U4 적용 상태에서는 그보다 앞서 "모두 1" 검사가 걸린다. `model-version.md`의 해당 문구는 #106에서 이 뜻으로 정정됐다(16절)
 
 - 검증 위치 [규칙 확정 10/21 C8, 검증 위치는 #94와 합의 11/02]
-  - `detection_methods_empty`: **저장 경로와 관계없이** 저장 결과 상태가 "켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0"이 되면 거절한다. 대상 경로는 룰 세트 저장(되돌리기 포함), 모델 운영에서 빼기(`retire`), 활성 집합 교체(`replace`)·복원(`restore`) [#94 `rule-set.md` 저장 절 검증 표, `model-version.md` 활성 집합 절 공통 검사]
+  - `detection_methods_empty`: **저장 경로와 관계없이** 저장 결과 상태가 "켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0"이 되면 거절한다([확정 11/28 C31 — 구현 전] "활성 모델 0" = **행 틀** 활성 모델 0, 곧 행 판정 방법 0개. 시계열 모델만 있고 켜진 룰이 0개여도 거절). 대상 경로는 룰 세트 저장(되돌리기 포함), 모델 운영에서 빼기(`retire`), 활성 집합 교체(`replace`)·복원(`restore`) [#94 `rule-set.md` 저장 절 검증 표, `model-version.md` 활성 집합 절 공통 검사]
   - k > n은 **min(k, n)으로 바꿔 평가하지 않는다**(사용자가 정한 k의 의미가 조용히 바뀌므로)
   - **1차 구현 [확정 11/03 U4]**: 정책 저장에서 k가 모두 1이 아니면 422(위 표). 그러면 룰 세트 저장·retire·활성 집합 변경으로는 k > n이 생길 수 없다(k = 1 ≤ n, 또는 n = 0이면 비활성). 이 경로들은 `detection_methods_empty`만 검사하면 된다
   - **U4를 나중에 완화해 k ≥ 2를 허용할 때만**(사용자 재결정 필요) 저장 시 양방향 검증이 필요하다
@@ -630,13 +634,13 @@
 | `status` | 7.3 판정 status | [확정 10/21] |
 | `rule_status` | hard + soft 방법 전체에 7.3 대분류 status 매핑 적용 | [제안 D2] |
 | `ml_status` | ML 방법 전체에 같은 매핑 | [제안 D2] |
-| `decision_code` | 첫 근거 방법(T인 대분류 안의 T 방법, 9.1·`composite.basisMethods`)의 `code`. 순서: `hard:process-status` → 다른 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순서, IF는 `IF_ANOMALY`). 근거 방법이 없으면 `null` — k 미달 대분류의 T는 코드로 남기지 않는다 | [제안 D3], 근거 방법 기준은 [#112 정정 11/04] — 현행 v1 순서(상태 HR → 첫 hit Rule → `IF_ANOMALY`, `runner.py:102`)와 같은 방향 |
-| `anomaly_score` | 활성 ML이 정확히 1개일 때만 그 원점수, 아니면 `null` | [제안 D3] — 현행 IF 점수 1개(`runner.py:124`) |
+| `decision_code` | 첫 근거 방법(T인 대분류 안의 T 방법, 9.1·`composite.basisMethods`)의 `code`. 순서: `hard:process-status` → 다른 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순서, IF는 `IF_ANOMALY`; [확정 11/28 C31 — 구현 전] 행 틀 모델, 코드는 카탈로그 `resultCode` — 6절). 근거 방법이 없으면 `null` — k 미달 대분류의 T는 코드로 남기지 않는다 | [제안 D3], 근거 방법 기준은 [#112 정정 11/04] — 현행 v1 순서(상태 HR → 첫 hit Rule → `IF_ANOMALY`, `runner.py:102`)와 같은 방향 |
+| `anomaly_score` | 활성 ML이 정확히 1개일 때만 그 원점수, 아니면 `null`([확정 11/28 C31 — 구현 전] 행 틀 활성 모델 = n_ml 기준) | [제안 D3] — 현행 IF 점수 1개(`runner.py:124`) |
 | `evidence` | 11절 v4 | |
 
 - 판정 행은 불변이다(`004_erd_v03_contracts.sql:131-137`). 작업당 1행(`004:94` `job_id UNIQUE`)
 - 지연 열(`source_log_occurred_at`·`source_latency_ms`·`latency_status`)은 18절
-- 후속 메모: IF 외 ML의 `decision_code`는 둘째 모델 추가 전에 정한다(6절)
+- IF 외 ML의 `decision_code`: 6절 결과 코드 규칙(카탈로그 `resultCode`)으로 정함 [확정 11/28 C31 — 구현 전]
 
 ## 13. 중간 판정 기록 — 정본
 
@@ -863,6 +867,7 @@
 
 ## 이력
 
+- 2026-11-28: 사용자 11/28 결정(이상 ML 두 틀) 반영 — C31 추가, 3.1 시계열 id `ml:trend-<algo>`, 6절 n_ml = 행 틀 모델 수·결과 코드 규칙(`resultCode`, `ML_<KEY>`, 예외 `IF_ANOMALY`)으로 "둘째 모델 추가 전에 정한다" 메모 닫음, 7.4 방법 0개 = 행 판정 방법 0개, 12절 `decision_code`·`anomaly_score` 정합. 표기 [구현 전]. 시계열 판정 계약은 넣지 않음(후속)
 - 2026-11-25: 6.1 ML 기여도 `methodResults[ml].attribution`(`baseline-shapley-v1`, 사용자 방향 승인 11/24·결정 A1~A4) 추가 — 계산 위치(`prepare_attempt`, 기한 밖, 판정 불변), 정확 Shapley·재현·효율성 확인, 묶음 규칙 `source-field-union-v1`, 저장 형식(`scaleIsUnit` 포함)·`skipped`/`failed` 코드·직렬화·크기 상한, 표시 규칙. 11.2 예시·11.5·11.7에 한 줄씩. 추가 키만이며 `schemaVersion` 4·판정 행 열·migration·큐 payload 변경 없음
 - 2026-11-22: 19절 묶음 저장(사용자 승인 S3, 결정 D2): 다중 작업자가 v04 첫 판정 여러 건을 트랜잭션 1개로 저장할 때 판정마다의 `judgment_store` 값 = 묶음 저장 소요, 묶음 크기는 evidence `telemetry.details.judgmentStoreBatchSize`, 묶음 실패 뒤 한 건 저장 규칙. "포함"을 실제 순서(detector 측정 행 INSERT가 판정 INSERT 앞, Detector 저장 문장 `detector/finish.py`)로 정정. 다른 계약·migration·API 변경 없음
 - 2026-11-15: 18절 측정 조건에 `assumed_tz`(KST로 해석한 시각) 포함(사용자 결정), `clock_status`는 Collector 값을 그대로 쓴다는 문장, 음수 표본 처리·관측 저장 → 판정 줄의 몫 정리(사용자 결정). 19절 판정 저장 소요 측정 행 추가(사용자 결정: migration + Detector가 COMMIT까지 측정, migration 031, 첫 판정만, COMMIT 뒤 별도 트랜잭션, 실패 무시)

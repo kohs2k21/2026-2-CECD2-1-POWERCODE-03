@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "method-catalog-v2",
+  "catalogVersion": "method-catalog-v3",
   "generatedFrom": {
     "gitRef": "7f24e03"
   },
@@ -214,14 +214,30 @@
       "notes": "TOTAL_COUNT = 0 이면 unavailable. p95가 1e-4 미만일 수 있어 고정소수 직렬화 필수, 표시는 유효숫자 4"
     }
   ],
+  "frames": {
+    "row": {
+      "displayName": "행 단위 모델",
+      "recommendedMethodId": null,
+      "recommendedParameters": null,
+      "evidence": null
+    },
+    "trend": {
+      "displayName": "시계열 모델",
+      "recommendedMethodId": null,
+      "recommendedParameters": null,
+      "evidence": null
+    }
+  },
   "methods": [
     {
       "methodId": "ml:iforest",
       "kind": "ml",
       "category": "ML",
+      "frame": "row",
       "displayName": "Isolation Forest",
       "status": "supported",
       "methodVersion": "process-iforest-v1",
+      "resultCode": "IF_ANOMALY",
       "uiTarget": {
         "scope": "server",
         "path": "server/worker/model_adapters.py",
@@ -299,9 +315,11 @@
       "methodId": "ml:minibatch_kmeans",
       "kind": "ml",
       "category": "ML",
+      "frame": "row",
       "displayName": "MiniBatch K-Means",
       "status": "research",
       "methodVersion": "research-minibatch-kmeans-v8",
+      "resultCode": "ML_MINIBATCH_KMEANS",
       "uiTarget": {
         "scope": "research",
         "path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py"
@@ -375,9 +393,11 @@
       "methodId": "ml:eif",
       "kind": "ml",
       "category": "ML",
+      "frame": "trend",
       "displayName": "Extended Isolation Forest",
       "status": "research",
       "methodVersion": "research-eif-long-term-trend",
+      "resultCode": "ML_EIF",
       "uiTarget": {
         "scope": "research",
         "path": "research/evaluation/long_term_trend/models.py"

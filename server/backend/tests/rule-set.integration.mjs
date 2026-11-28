@@ -111,7 +111,7 @@ try {
   // 2) 시작 상태. 016 전이면 r0, 016 뒤면 시스템 행 r1이다. 일반 사용자도 읽기 가능. 번호는 첫 조회에서 출발해 상대값으로 단언한다.
   const start = await read(user);
   assert.equal(start.contractVersion, 'rule-set-v1');
-  assert.deepEqual([start.catalogVersion, start.restoredFromRevision, start.softRules], ['method-catalog-v2', null, []]);
+  assert.deepEqual([start.catalogVersion, start.restoredFromRevision, start.softRules], ['method-catalog-v3', null, []]);
   assert.deepEqual(start.hardRules.map((rule) => [rule.id, rule.editable]), [[HARD[0], ['enabled', 'severity']], [HARD[1], ['enabled']], [HARD[2], ['enabled']], [HARD[3], ['enabled']],
     [HARD[4], ['enabled', 'severity']], [HARD[5], ['enabled', 'severity']]]);
   assert.deepEqual(start.hardRules.slice(2).map((rule) => [rule.methodVersion, rule.severity]), [['success-with-error-v1', 'critical'], ['count-conservation-v1', 'critical'],

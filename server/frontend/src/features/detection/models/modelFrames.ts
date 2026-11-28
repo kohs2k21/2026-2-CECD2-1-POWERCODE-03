@@ -29,6 +29,8 @@ export const frameText = {
   blocked: (frame: ModelFrame) => `${frameLabels[frame]}은 지금 학습할 수 없습니다 · 서버에서 학습할 수 있는 알고리즘이 없습니다.`,
   noVersions: (frame: ModelFrame) => `${frameLabels[frame]}의 학습된 버전이 없습니다.`,
   slot: "자리",
+  /** 운영 설정 운영 모델 표 설명: 틀로 묶어 보이지만 교체·추가 운영 규칙은 그대로다. */
+  slotCaption: "틀마다 자리로 묶어 보임 · 같은 알고리즘이면 교체, 다른 알고리즘은 추가 운영(틀 안 교체는 아직 없음)",
   slotModel: "자리 · 모델",
   emptySlot: (frame: ModelFrame) => `운영 중인 ${frameLabels[frame]}이 없습니다`,
   noTrainable: "학습할 수 있는 알고리즘 없음",
@@ -41,8 +43,13 @@ export const methodsOfFrame = (methods: CatalogMethod[] | undefined, frame: Mode
 const keyOf = (method: Pick<CatalogMethod, "methodId">) => method.methodId.slice(method.methodId.indexOf(":") + 1);
 export const frameOfModelKey = (methods: CatalogMethod[] | undefined, modelKey: string | null | undefined) =>
   modelKey ? frameOfMethod(methods?.find((method) => keyOf(method) === modelKey)) : null;
-/** 학습할 수 있는(서버에서 실행 가능한) 알고리즘이 있는 틀인가. */
-export const frameTrainable = (methods: CatalogMethod[]) => methods.some((method) => method.executable.process);
+/**
+ * 학습할 수 있는(서버에서 실행 가능한) 방법인가 — 화면의 유일한 판단(구역 `학습 가능 m개`·[새 학습]·3단계 선택 가능·기본 선택이 모두 이것을 쓴다).
+ * 지금은 카탈로그 `executable.process`. 시계열 틀 전용 실행 표시가 생기면 이 함수만 바꾼다.
+ */
+export const methodTrainable = (method: Pick<CatalogMethod, "executable">) => method.executable.process;
+/** 학습할 수 있는 알고리즘이 있는 틀인가. */
+export const frameTrainable = (methods: CatalogMethod[]) => methods.some(methodTrainable);
 /** 학습 불가 사유: 카탈로그 `executableReason` 코드 그대로(없으면 상태). */
 export const notTrainableReason = (method: CatalogMethod) => method.executableReason?.process ?? method.status;
 /** 모델 이름표 `행 단위 모델 · Isolation Forest`(틀 이름 · 알고리즘 표시 이름). 틀이나 이름을 모르면 null(호출부가 지금 표시를 유지). */

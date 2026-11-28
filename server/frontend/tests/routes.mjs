@@ -322,6 +322,46 @@ for (const [path, search, expected] of legacy) {
     await act(async () => list.router.navigate(back.props.href));
     assert.deepEqual(calls.splice(0), [["top", 0, 0], ["into", "rules-response-codes", "start"]], "back returns to the card area");
     await list.cleanup();
+    // 머신러닝 모델 틀 구역 [새 학습]: 목차 `새 학습`과 같은 해시 이동(#models-train)이라 같은 주소를 다시 눌러도, 목차로 다른 영역에 갔다 와도 새 학습 영역으로 간다.
+    {
+      const { readFile } = await import("node:fs/promises");
+      const catalog = JSON.parse(await readFile(new URL("../../contracts/method-catalog.json", import.meta.url), "utf8"));
+      extraFetch = (target) => {
+        if (target.pathname === "/api/jobs/capabilities") return { methodCatalog: catalog, snapshot: { timeBasis: "persisted_at" } };
+        if (target.pathname === "/api/configurations") return { items: [], pagination: { limit: 50, hasMore: false, nextCursor: null } };
+        if (target.pathname === "/api/pipeline/sources") return { items: [] };
+        return null;
+      };
+      for (const id of ["models-row", "models-trend", "models-train"]) sections.set(id, fakeSection(id));
+      const models = await mount("/detection/models");
+      for (let i = 0; i < 20 && !models.links().some((node) => node.props["data-new-train"] === "row"); i++) await tick();
+      const newTrain = () => models.links().find((node) => node.props["data-new-train"] === "row");
+      assert.equal(newTrain().props.href, "/detection/models?frame=row&step=1#models-train", "[새 학습] carries the training area hash");
+      const click = async (node) => act(async () => node.props.onClick({ button: 0, metaKey: false, altKey: false, ctrlKey: false, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } }));
+      const settleScroll = async () => { for (let i = 0; i < 30; i++) await tick(); };
+      calls.length = 0;
+      await click(newTrain());
+      await settleScroll();
+      assert.deepEqual(calls.splice(0).filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "first click goes to the training area");
+      // 재현 1: 같은 주소를 다시 누른다 → 다시 새 학습 영역(맨 위로 가거나 그대로 있지 않음)
+      await click(newTrain());
+      await settleScroll();
+      const again = calls.splice(0);
+      assert.deepEqual(again.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "the same address again still goes to the training area");
+      assert.ok(!again.some(([kind]) => kind === "top"), "never back to the top");
+      // 재현 2: 목차 `행 단위 모델` → [새 학습] → 새 학습 영역(해시만 지운 이동으로 보고 맨 위로 올리지 않음)
+      const rowToc = models.links().find((node) => node.props.href?.endsWith("#models-row"));
+      await click(rowToc);
+      await settleScroll();
+      assert.deepEqual(calls.splice(0).filter(([kind]) => kind === "into"), [["into", "models-row", "start"]], "TOC goes to the row frame");
+      await click(newTrain());
+      await settleScroll();
+      const back = calls.splice(0);
+      assert.deepEqual(back.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "[새 학습] after the TOC goes to the training area");
+      assert.ok(!back.some(([kind]) => kind === "top"), "not to the top");
+      await models.cleanup();
+      extraFetch = null;
+    }
   } finally {
     delete globalThis.window.scrollTo;
     delete globalThis.document;

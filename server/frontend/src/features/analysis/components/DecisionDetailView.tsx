@@ -144,7 +144,10 @@ const SummaryCard = ({ detail, isAdmin }: { detail: DecisionDetail; isAdmin: boo
   if (config)
     items.push({
       label: "당시 운영 머신러닝 모델",
-      value: config.models.length ? config.models.map((m) => (m.adapterName ? `${m.modelKey}(${m.adapterName})` : m.modelKey)).join(", ") : "없음",
+      // 모델 이름표(mlModels)가 있으면 `행 단위 모델 · Isolation Forest`, 없으면 지금 표시 `<키>(<어댑터>)`.
+      value: config.models.length
+        ? config.models.map((m) => labelOfModelKey(detail.mlModels, m.modelKey) ?? (m.adapterName ? `${m.modelKey}(${m.adapterName})` : m.modelKey)).join(", ")
+        : "없음",
     });
   items.push(
     { label: "판정 단계", value: stageLabels[detail.stage] },

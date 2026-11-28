@@ -371,7 +371,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.deepEqual(calls("GET", "/api/configurations").slice(-2).map((call) => new URLSearchParams(call.search).get("active")).sort(), [null, "true"], "current = server active filter, list = all versions");
   // [새 학습]: 학습할 수 있는 틀은 그 틀로 새 학습을 여는 링크, 막힌 틀은 비활성 버튼. 버전 목록의 탭(현재 운영 버전/전체 버전)은 없다.
   const rowTrain = app.renderer.root.findAll((node) => node.type === "a" && node.props["data-new-train"] === "row")[0];
-  assert.equal(rowTrain.props.href, "/detection/models?frame=row&step=1");
+  assert.equal(rowTrain.props.href, "/detection/models?frame=row&step=1#models-train", "same hash move as the TOC item");
+  assert.ok(!app.renderer.root.findAll((node) => node.props.id === "models-unknown").length, "no unknown-frame group without such versions");
+  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "더 보기").length, 0, "no more button on the last page");
   const trendTrain = app.renderer.root.findAll((node) => node.type === "button" && node.props["data-new-train"] === "trend")[0];
   assert.equal(trendTrain.props.disabled, true, "no trainable trend algorithm");
   assert.ok(!shown.includes("전체 버전"), "the version tabs are replaced by the frame heads");
@@ -417,12 +419,32 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   await app.cleanup();
 }
 
+// 4-0) 카탈로그에 없는 키의 버전: `틀 미확인` 묶음(그런 버전이 있을 때만, 목차 밖). 그 버전이 운영 중이어도 틀 구역 머리는 그 틀만 말한다
+{
+  const UNKNOWN = "abcdabcd-1111-4111-8111-111111111111";
+  const unknown = version(UNKNOWN, { modelKey: "retired_model", active: true, displayName: "옛 모델" });
+  routes = baseRoutes({ "GET /api/configurations": (target) => json(page(target.searchParams.get("active") === "true" ? [active, unknown] : [active, unknown, research])) });
+  const app = await mount();
+  await wait(() => app.shown().includes("틀 미확인"), "unknown-frame group");
+  const card = text(app.renderer.root.findAll((node) => node.props.id === "models-unknown" && node.props["data-slot"] === "section-card")[0].children);
+  assert.ok(card.startsWith("틀 미확인") && card.includes(`현재 운영: retired_model · ${UNKNOWN.slice(0, 8)} · 옛 모델`), card);
+  assert.ok(!card.includes("새 학습") && !card.includes("알고리즘"), "no training or algorithm line for an unknown frame");
+  const row = text(app.renderer.root.findAll((node) => node.props.id === "models-row" && node.props["data-slot"] === "section-card")[0].children);
+  assert.ok(row.includes(`현재 운영: Isolation Forest · ${V1.slice(0, 8)}`) && !row.includes(UNKNOWN.slice(0, 8)), "the row frame head lists only its own frame");
+  assert.deepEqual(detectionToc.models.map(({ id }) => id), ["models-row", "models-trend", "models-train"], "the TOC stays on the two frames");
+  await app.cleanup();
+}
+
 // 4-1) 첫 쪽이 전부 룰 전용이어도 다음 쪽을 읽을 수 있다. 빈 문구는 끝을 확인한 뒤에만
 {
   routes = baseRoutes({ "GET /api/configurations": (target) => json(target.searchParams.get("active") === "true" ? page([]) : target.searchParams.get("cursor") ? page([active]) : page([ruleOnly], "next-1")) });
   const app = await mount();
   await wait(() => app.button("더 보기"), "more stays reachable");
   assert.ok(!app.shown().includes("학습된 버전이 없습니다."));
+  // 다음 쪽 읽기는 화면에 하나(틀 구역 아래), 틀 구역 안에는 없다
+  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "더 보기").length, 1, "one more button for the whole list");
+  const moreBox = app.renderer.root.findAll((node) => node.props["data-versions-more"])[0];
+  assert.ok(moreBox && !app.renderer.root.findAll((node) => node.props["data-slot"] === "section-card").some((card) => card.findAll((node) => node.props["data-versions-more"]).length), "outside the frame cards");
   await app.click("더 보기");
   await wait(() => app.shown().includes(V1.slice(0, 8)), "next page");
   await app.cleanup();
@@ -1894,7 +1916,7 @@ for (const [hasMore, expected] of [[true, true], [false, false]]) {
   const trend = await mount("/detection/models?frame=trend");
   await wait(() => trend.input("period-from"), "a runnable trend method opens the steps");
   const trendTrain = trend.renderer.root.findAll((node) => node.type === "a" && node.props["data-new-train"] === "trend")[0];
-  assert.equal(trendTrain.props.href, "/detection/models?frame=trend&step=1", "the trend frame head links to its training");
+  assert.equal(trendTrain.props.href, "/detection/models?frame=trend&step=1#models-train", "the trend frame head links to its training");
   await trend.cleanup();
 }
 

@@ -17,7 +17,7 @@ export const useTrainJob = (jobId: string | null | undefined) =>
 
 type More = { key: string; items: ModelVersion[]; cursor?: string | null; error: string | null; loading: boolean };
 
-/** 버전 목록: 두 탭 모두 최신순 커서(현재 운영 버전은 서버 `active=true`). */
+/** 버전 목록 조회: 최신순 커서(`active`는 서버 `active=true` 필터, `all`은 전체 버전). 머신러닝 모델 화면은 두 틀 구역이 두 조회를 같이 쓴다. */
 export const useVersions = (tab: "active" | "all") => {
   const first = useAccountQuery({
     name: VERSIONS_QUERY, params: [tab], adminOnly: true, staleTime: 0,

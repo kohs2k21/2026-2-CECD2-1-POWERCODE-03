@@ -13,11 +13,11 @@ import { comparisonKey, type CompareVersion, type ComparisonListItem, type Evalu
 import { REC_STATE_LABELS, comparisonStatus, decisionLabel, labelOf } from "./evaluationFormat";
 import { useCompareVersions, useComparisons, useEvaluationSets } from "./useEvaluations";
 import { detectionSections, sectionReturnTo } from "../detectionToc";
-import { frameLabels, frameOfModelKey, modelFrames } from "../models/modelFrames";
+import { frameLabels, frameOfModelKey, frameText, modelFrames, modelLabelText } from "../models/modelFrames";
 import type { CatalogMethod } from "../models/modelsApi";
 import { useCapabilities } from "../models/useModels";
 
-const COLUMNS = ["비교", "자리", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
+const COLUMNS = ["비교", frameText.slot, "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
 /** 비교의 자리(틀): 기준 운영 버전·추천의 모델 키 → 카탈로그 틀(modelFrames.ts). 모르면 —. */
 const slotText = (item: ComparisonListItem, methods: CatalogMethod[] | undefined) => {
   const keys = [...item.baselines.map((baseline) => baseline.modelKey), ...(item.recommendations ?? []).map((rec) => rec.modelKey)];
@@ -25,7 +25,12 @@ const slotText = (item: ComparisonListItem, methods: CatalogMethod[] | undefined
   return frames.length ? frames.map((frame) => frameLabels[frame]).join(", ") : DASH;
 };
 
-const RecommendationCell = ({ item, versions }: { item: ComparisonListItem; versions: CompareVersion[] | undefined }) => {
+/** 추천 원소의 모델: 이름표(`행 단위 모델 · Isolation Forest`), 카탈로그에 없으면 키 그대로. */
+const modelText = (methods: CatalogMethod[] | undefined, modelKey: string) => {
+  const method = methods?.find((item) => item.methodId === `ml:${modelKey}`);
+  return modelLabelText(frameOfModelKey(methods, modelKey), method?.displayName) ?? modelKey;
+};
+const RecommendationCell = ({ item, versions, methods }: { item: ComparisonListItem; versions: CompareVersion[] | undefined; methods: CatalogMethod[] | undefined }) => {
   // 추천 배열이 없으면 완료 뒤 사유(추천 계산 전 결과 `not_implemented_v1`)를 미연결로 보인다. 완료 전은 빈칸.
   if (!item.recommendations) return <>{item.recommendationsReason ? `미연결 · ${item.recommendationsReason}` : DASH}</>;
   if (!item.recommendations.length) return <>{DASH}</>;
@@ -33,7 +38,7 @@ const RecommendationCell = ({ item, versions }: { item: ComparisonListItem; vers
   return (
     <span className="grid justify-items-start gap-1">
       {item.recommendations.map(({ modelKey, targetVersionId, state, decision }) => {
-        const prefix = several ? `${modelKey} · ` : "";
+        const prefix = several ? `${modelText(methods, modelKey)} · ` : "";
         // 분류(11/15~)가 있으면 그 표시 이름. 추천 계산 전 모양(분류 없음)은 기존 표시 그대로.
         if (decision && decision !== "recommend_replace") return <span key={modelKey} data-decision={decision}>{prefix}{decisionLabel(decision)}</span>;
         if (state === "none") return <span key={modelKey}>{prefix}{REC_STATE_LABELS.none}</span>;
@@ -54,7 +59,7 @@ const ComparisonRow = ({ item, sets, versions, methods, returnTo }: { item: Comp
       <TableCell className="whitespace-normal">{numberText(item.itemCount)}개{baselines ? ` (기준 운영 ${baselines})` : ""}</TableCell>
       <TableCell>{stampText(item.completedAt)}</TableCell>
       <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
-      <TableCell><RecommendationCell item={item} versions={versions} /></TableCell>
+      <TableCell><RecommendationCell item={item} versions={versions} methods={methods} /></TableCell>
     </TableRow>
   );
 };

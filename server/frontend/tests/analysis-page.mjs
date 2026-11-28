@@ -610,7 +610,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   const mlCause = { category: "ml", methodId: "ml:iforest", ruleKey: null, code: "IF_ANOMALY", observedStatus: null, fieldName: null, operator: null, threshold: null,
     unit: null, observedValue: null, modelName: "Isolation Forest", score: 0.71, scoreThreshold: "0.61" };
   const listed = item("d-7", { grade: "anomaly_sign", evidence, mlModels: labels, causes: [mlCause] });
-  const detail = { ...listed, configuration: null, job: null };
+  const detail = { ...listed, configuration: { id: "config-1", createdAt: null, detectionMode: "parallel", ruleCount: 1, models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }, { modelKey: "lof", adapterName: null }] }, job: null };
   routes = {
     "GET /api/analysis/decisions": () => json(listBody([listed, item("d-8")])),
     "GET /api/analysis/decisions/d-7": () => json(detail),
@@ -632,6 +632,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   const shown = app.shown();
   assert.ok(shown.includes("판정 결과이상 징후 · 근거 머신러닝 모델"), "the evidence group name stays");
   assert.ok(shown.includes("위험도위험도 미정 · 단계 없는 근거 행 단위 모델 · Isolation Forest"), "risk basis uses the label");
+  assert.ok(shown.includes("당시 운영 머신러닝 모델행 단위 모델 · Isolation Forest, lof"), "configuration models: label, or the key when unlabeled");
   const row = (id) => text(app.renderer.root.find((node) => node.type === "tr" && node.props["data-method"] === id).children);
   assert.ok(row("ml:iforest").startsWith("머신러닝 모델행 단위 모델 · Isolation Forest완료"), "category column stays, method name is the label");
   assert.ok(row("ml:lof").startsWith("머신러닝 모델머신러닝 모델(lof)"), "unlabeled key keeps the current name");

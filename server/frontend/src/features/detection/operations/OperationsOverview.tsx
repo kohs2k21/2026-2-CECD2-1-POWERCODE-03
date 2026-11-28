@@ -70,10 +70,6 @@ const ruleRows = (rules: RuleSetState, fields: SoftRuleField[]): RuleRow[] => [
   })),
 ];
 
-/**
- * 운영 모델 표 설명: 틀 2자리로 묶어 보이지만 교체·추가 운영 규칙은 그대로다(같은 알고리즘이면 교체, 다른 알고리즘은 추가 운영 — 같은 틀 안 다른 알고리즘 교체는 아직 없음).
- */
-const SLOT_CAPTION = "틀마다 자리로 묶어 보임 · 같은 알고리즘이면 교체, 다른 알고리즘은 추가 운영(틀 안 교체는 아직 없음)";
 /** 빈 자리 한 줄: `운영 중인 <틀>이 없습니다` + 학습할 수 있는 알고리즘이 없으면 카탈로그 사유 코드 그대로(카탈로그를 읽은 뒤에만 자리를 나눈다). */
 const EmptySlotRow = ({ frame, methods }: { frame: ModelFrame; methods: CatalogMethod[] }) => (
   <TableRow data-frame={frame} data-empty-slot={frame}>
@@ -164,7 +160,7 @@ export const OperationsOverview = ({ state, rules, fields, methods, onRetire }: 
           <h3 className="text-sm font-semibold">현재 운영 {ML_TERM}</h3>
           <div className="overflow-x-auto">
             <Table aria-label="모델 작동 상태">
-              <TableCaption>{SLOT_CAPTION} · {label}</TableCaption>
+              <TableCaption>{frameText.slotCaption} · {label}</TableCaption>
               <TableHeader><TableRow>{[frameText.slotModel, "버전", ...STAT_HEAD, "운영"].map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
               <TableBody>
                 {slots.map(({ frame, models: inSlot }) => (inSlot.length ? inSlot.map((model) => {

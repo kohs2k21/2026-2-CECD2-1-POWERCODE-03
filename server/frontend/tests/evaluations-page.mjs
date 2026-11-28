@@ -149,8 +149,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const shown = app.shown();
   assert.ok(shown.includes("진행 중") && shown.includes("완료 · 일부 실패"));
   assert.ok(shown.includes(`교체 추천 ${short("7be19a34")} · 실험 7 · 현재 추천`));
-  assert.ok(shown.includes("eif · 해당 없음"));
-  const noneText = rowOf(app, C_LATEST).findAll((node) => node.type === "span" && text(node.children) === "eif · 해당 없음")[0];
+  // 추천이 여럿이면 앞에 모델 이름표(틀 이름 · 카탈로그 이름), 카탈로그를 읽기 전·카탈로그에 없는 키는 키 그대로
+  await wait(() => app.shown().includes("시계열 모델 · Extended Isolation Forest · 해당 없음"), "recommendation model label");
+  const noneText = rowOf(app, C_LATEST).findAll((node) => node.type === "span" && text(node.children) === "시계열 모델 · Extended Isolation Forest · 해당 없음")[0];
   assert.equal(noneText.props["data-slot"], undefined, "no recommendation is plain text, not a badge");
   assert.ok(shown.includes("3개 (기준 운영 4d2f7c10 · V4)"));
   // 자리(틀) 열: 기준 운영·추천의 모델 키 → 카탈로그 틀(iforest = 행 단위, eif = 시계열)
@@ -577,7 +578,7 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(rowText(list, saved[2].comparisonId).endsWith("현재 유지"), "keep_current");
   assert.ok(rowText(list, sample.C_V1).endsWith("미연결 · not_implemented_v1"), "old result keeps the unconnected cell");
   const draftText = rowText(list, draftShape.comparisonId);
-  assert.ok(draftText.includes(`iforest · 추천 ${short("7be19a34")} · 실험 7 · 현재 추천`) && draftText.includes("eif · 추천 없음"), "no decision keeps the previous wording");
+  assert.ok(draftText.includes(`행 단위 모델 · Isolation Forest · 추천 ${short("7be19a34")} · 실험 7 · 현재 추천`) && draftText.includes("시계열 모델 · Extended Isolation Forest · 추천 없음"), "no decision keeps the previous wording");
   await list.cleanup();
   sample.comparisons.splice(0, sample.comparisons.length, ...saved);
 

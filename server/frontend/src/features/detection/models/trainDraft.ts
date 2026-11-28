@@ -3,6 +3,7 @@ import { HttpError } from "@/services/api/client";
 import type { FeatureSet, PipelineJob } from "@/services/api/pipeline.api";
 import type { CatalogMethod, ParameterRule, TimeBasis } from "./modelsApi";
 import { useDraftStore } from "@/stores/draftStore";
+import { methodTrainable } from "./modelFrames";
 import { toUtc, type Range } from "./period";
 
 /** 새 학습 초안과 방법 카탈로그 기준 파라미터 표시·검사. 최종 판단은 서버·워커가 같은 카탈로그로 다시 한다. */
@@ -80,7 +81,7 @@ export const draftDirty = ({ period, featureSetId, modelKey, params }: TrainDraf
 export const modelKeyOf = (method: Pick<CatalogMethod, "methodId">) => method.methodId.slice(method.methodId.indexOf(":") + 1);
 /** 실행 가능한 첫 모델이 기본 선택이다. 선택값이 실행 불가가 되면 쓰지 않는다. */
 export const selectedMethod = (methods: CatalogMethod[], modelKey: string | null) =>
-  methods.find((method) => modelKeyOf(method) === modelKey && method.executable.process) ?? methods.find((method) => method.executable.process) ?? null;
+  methods.find((method) => modelKeyOf(method) === modelKey && methodTrainable(method)) ?? methods.find(methodTrainable) ?? null;
 
 /** 화면 이름·뜻은 카탈로그에 없어 와이어프레임 값을 쓴다. 없는 키는 키 그대로 표시한다. */
 const PARAMETER_TEXT: Record<string, { label: string; meaning: string }> = {

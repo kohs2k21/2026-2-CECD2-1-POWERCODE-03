@@ -1,0 +1,48 @@
+{
+  "version": "xai-templates/1.0.0",
+  "templates": {
+    "rule_comparison": "{feature_name} 값은 {observed}{unit_label}이며, 기준 {threshold}{unit_label}와 {operator_label} 비교한 결과 {state_label}입니다.",
+    "logical_rule": "{approved_statement} 조건의 판정은 {state_label}입니다. 이 기록만으로 실제 장애 원인을 확정하지 않았습니다.",
+    "ml_score": "{algorithm}의 {score_name}는 {score}이며, 기준 {threshold}와 {operator_label} 비교한 결과 {state_label}입니다. 점수 방향은 {score_direction_label}입니다.",
+    "unavailable": "{check_name}은 {reason_label} 때문에 평가할 수 없습니다. 평가 불가를 비경고로 처리하지 않았습니다.",
+    "ratio_alternative": "분모가 {denominator}이어서 원래 비율을 계산할 수 없습니다. 실제 대체 규칙 {alternative_rule_id}의 {alternative_feature_name} 값 {alternative_value}{unit_label}을 기준 {threshold}{unit_label}와 {operator_label} 비교한 결과 {state_label}입니다.",
+    "observation": "{field_name}의 확인된 값은 {value}{unit_label}입니다.",
+    "ml_attribution": "{analysis_method}로 계산한 {feature_id}의 {analysis_label}은 {analysis_value}입니다. 참조는 {reference_description}이며, 모델 동작 분석이지 실제 장애 원인의 확정값이 아닙니다."
+  },
+  "operator_labels": {
+    "gt": "초과",
+    "ge": "이상",
+    "lt": "미만",
+    "le": "이하",
+    "eq": "같음",
+    "ne": "다름"
+  },
+  "state_labels": {
+    "warning": "경고",
+    "nonwarning": "비경고",
+    "unavailable": "평가 불가",
+    "context": "참고 정보"
+  },
+  "score_direction_labels": {
+    "larger_is_more_anomalous": "클수록 이상",
+    "smaller_is_more_anomalous": "작을수록 이상"
+  },
+  "reason_labels": {
+    "source_missing": "원천 값 결측",
+    "undefined_denominator": "분모 0으로 비율 미정의",
+    "unknown_unit": "단위 미확인",
+    "no_reference": "참조 근거 없음",
+    "method_not_run": "검사 미실행",
+    "unsupported_operation": "지원하지 않는 연산",
+    "attribution_not_computed": "피처 기여도 미계산"
+  },
+  "checks": {
+    "review_source_operation": "해당 위치의 원천 운영 기록을 확인하세요. 실제 원인은 아직 확정되지 않았습니다.",
+    "review_rule_threshold": "해당 규칙의 승인 조건과 참조 기간·집단을 확인하세요.",
+    "review_model_baseline": "모델 기준 기간과 현재 데이터의 피처 분포를 확인하세요.",
+    "review_input_completeness": "원천 필드의 값과 로그 수집 완료 여부를 확인하세요.",
+    "review_recovery_history": "같은 거래의 후속 처리·재시도·복구 기록을 확인하세요."
+  },
+  "unknown_unit_label": "(단위 미확인)",
+  "status": "design_registry_not_deployed"
+}

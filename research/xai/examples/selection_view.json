@@ -1,0 +1,52 @@
+{
+  "contract": "xai-summary-input/1.0.0",
+  "evidence_binding_sha256": "937f19fe6d63061b60b1cea31c775ad02e81febe02cc8ae62333fccb2a233b3e",
+  "decision": "warning",
+  "facts": [
+    {
+      "id": "E1",
+      "kind": "rule_comparison",
+      "state": "warning",
+      "required": true,
+      "source_refs": [
+        "S1"
+      ],
+      "payload": {
+        "role": "numeric_SR",
+        "rule_id": "DEMO-SR-LATENCY",
+        "feature_id": "p_elapsed",
+        "feature_name": "프로세스 처리시간",
+        "observed": "12",
+        "operator": "gt",
+        "threshold": "3",
+        "unit": {
+          "status": "known",
+          "symbol": "초"
+        },
+        "reference": {
+          "kind": "baseline",
+          "id": "DEMO-REFERENCE"
+        }
+      }
+    },
+    {
+      "id": "E2",
+      "kind": "ml_score",
+      "state": "warning",
+      "required": true,
+      "source_refs": [
+        "S1"
+      ],
+      "payload": {
+        "algorithm": "K-means",
+        "score_name": "경고 기준 대비 점수 차이",
+        "score": "0.27",
+        "threshold": "0",
+        "operator": "gt",
+        "score_direction": "larger_is_more_anomalous",
+        "score_grain": "P"
+      }
+    }
+  ],
+  "note": "All adverse evidence is present. Nonwarning details and full provenance are archived in the parent packet; no root-cause labels."
+}

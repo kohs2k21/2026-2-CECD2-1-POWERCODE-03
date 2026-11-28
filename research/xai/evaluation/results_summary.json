@@ -1,0 +1,50 @@
+{
+  "scope": "aggregate archived development results, not an independent operational test",
+  "training": {
+    "train": 64,
+    "validation": 12,
+    "test": 16,
+    "steps": 32,
+    "selected_epoch": 2
+  },
+  "original_summary_contract": {
+    "base_valid": 12,
+    "sft_valid": 16,
+    "total_cases": 16
+  },
+  "enriched_legacy_response": {
+    "base_valid": 31,
+    "sft_valid": 39,
+    "total_chunks": 41,
+    "transactions": 5
+  },
+  "fresh_evidence_only_contract": {
+    "base_valid": 41,
+    "sft_valid": 41,
+    "total_chunks": 41,
+    "transactions": 5,
+    "code_fallbacks": 0,
+    "note": "same development cases; different output contract, old scores preserved"
+  },
+  "service_validation": {
+    "research_CPU_tests": 95,
+    "patched_worker_native_v4_cases": 10,
+    "legacy_worker_compatible": true,
+    "local_HTTP": "passed against backend contract stub",
+    "production_DB_test": false,
+    "TypeScript_check": false
+  },
+  "outcomes": {
+    "confirmed_actual_causes": 0,
+    "independent_expert_reviews": 0,
+    "LLM_better_than_code": "not_established"
+  },
+  "upload_exclusions": [
+    "customer CSVs",
+    "real transaction IDs and evidence packets",
+    "SFT JSONL pairs",
+    "optimizer state",
+    "tokens",
+    "Base weights"
+  ]
+}

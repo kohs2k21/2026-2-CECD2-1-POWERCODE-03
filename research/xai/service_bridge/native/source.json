@@ -1,0 +1,42 @@
+{
+  "repository": "kohs2k21/2026-2-CECD2-1-POWERCODE-03",
+  "commit": "182e6831fc990d7010d92e6e5ba7c3d05a050eef",
+  "files": [
+    {
+      "path": "detector/decision.py",
+      "sha256": "58b03932264897d021b755cedebae12b310485c9d731d9ec8c1a1ce7a213134b"
+    },
+    {
+      "path": "detector/evidence_v4.py",
+      "sha256": "27891c29a048fa9d26cbe32fd14424be7509f30bbfab0b1d86a429d1a65bd83d"
+    },
+    {
+      "path": "detector/hard_rules.py",
+      "sha256": "1d3215ccf29f27abcdda05ce39266f701230eba72202232a9890295bf477ccbe"
+    },
+    {
+      "path": "detector/method_results.py",
+      "sha256": "5f2c50b4e1948b74ea7a82addb6031b97f6bb4de2e7216dfaa432e3f715ffe9e"
+    },
+    {
+      "path": "detector/policy.py",
+      "sha256": "d97f4b88e748f4082d05197b790babd810bbde59b931f06bfd5ad7665dd8754a"
+    },
+    {
+      "path": "derived_expression.py",
+      "sha256": "8a607eb39a12f2f28d4f3e89ac48080e2f6d7519ccb7491caa0f80591965d59a"
+    },
+    {
+      "path": "detector/relation_graph.py",
+      "sha256": "7140f475bbc6747420da5c1c8101974708282ed5e9e6f90ea86c8b47e8450dff"
+    },
+    {
+      "path": "detector/status_rule.py",
+      "sha256": "28ead8d822d1228fe19d600b12454a04335406a2eb5b152fb8a225ede4b889a8"
+    },
+    {
+      "path": "detector/relation_inputs.py",
+      "sha256": "df4bcd120d79cc642d5a15e058a59fea867391af908d9390854b7ea2f510b650"
+    }
+  ]
+}

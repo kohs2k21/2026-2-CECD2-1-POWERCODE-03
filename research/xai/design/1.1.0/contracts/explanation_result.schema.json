@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "xai-result/1.1.0"
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "template_fallback"
+      ]
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "state": {
+          "enum": [
+            "warning",
+            "nonwarning",
+            "unavailable"
+          ]
+        },
+        "policy": {
+          "enum": [
+            "research_or",
+            "service_k_of_n"
+          ]
+        },
+        "detector_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis_method_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "sha256",
+        "state",
+        "policy",
+        "detector_version",
+        "basis_method_ids"
+      ],
+      "additionalProperties": false
+    },
+    "severity": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "rated",
+            "unrated",
+            "not_applicable"
+          ]
+        },
+        "level": {
+          "enum": [
+            "info",
+            "warning",
+            "critical",
+            null
+          ]
+        },
+        "label": {
+          "enum": [
+            "참고",
+            "주의",
+            "위험",
+            "심각도 미정",
+            "해당 없음"
+          ]
+        },
+        "label_table_version": {
+          "const": "xai-three-level-v2"
+        },
+        "policy_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "determined_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "unrated_methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "known_level_is_lower_bound": {
+          "type": "boolean"
+        },
+        "source_risk_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "level",
+        "label",
+        "label_table_version",
+        "policy_version",
+        "policy_sha256",
+        "determined_by",
+        "unrated_methods",
+        "known_level_is_lower_bound",
+        "source_risk_ref"
+      ],
+      "additionalProperties": false
+    },
+    "sentences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "enum": [
+              "rule_comparison",
+              "logical_rule",
+              "ml_score",
+              "unavailable",
+              "ratio_alternative",
+              "observation",
+              "ml_attribution"
+            ]
+          },
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "template_id",
+          "evidence_id",
+          "text",
+          "source_refs"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "next_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "enum": [
+              "review_source_operation",
+              "review_rule_threshold",
+              "review_model_baseline",
+              "review_input_completeness",
+              "review_recovery_history"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 3
+    },
+    "cause_status": {
+      "enum": [
+        "unconfirmed",
+        "not_applicable"
+      ]
+    },
+    "contribution_status": {
+      "enum": [
+        "not_computed",
+        "computed",
+        "unavailable",
+        "not_applicable"
+      ]
+    },
+    "fallback_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "versions": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "templates": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapter_sha256": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution": {
+          "enum": [
+            "illustrative_fixture",
+            "base",
+            "xai_lora",
+            "template_only"
+          ]
+        }
+      },
+      "required": [
+        "prompt",
+        "templates",
+        "adapter_sha256",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "transaction",
+            "single_method"
+          ]
+        },
+        "transaction_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "grain": {
+          "enum": [
+            "T",
+            "P",
+            "M"
+          ]
+        },
+        "entity_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "transaction_ref",
+        "grain",
+        "entity_ref"
+      ],
+      "additionalProperties": false
+    },
+    "input_evidence_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "packet_id",
+    "status",
+    "decision",
+    "severity",
+    "sentences",
+    "next_checks",
+    "cause_status",
+    "contribution_status",
+    "fallback_reason",
+    "versions",
+    "scope",
+    "input_evidence_sha256"
+  ],
+  "additionalProperties": false
+}

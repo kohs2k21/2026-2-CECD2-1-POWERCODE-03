@@ -197,6 +197,14 @@ class FrameAndResultCodeTests(unittest.TestCase):
         v2["methods"][2]["inputRequirements"]["unit"] = "process_row"
         self.assertEqual(registry.frame_changes(v2, self.catalog), ["ml:eif"])
 
+    def test_write_refuses_an_unreadable_existing_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "catalog.json"
+            broken = '{"methods": [ broken'
+            target.write_text(broken, encoding="utf-8")
+            self.assertEqual(registry.main(["--write", "--output", str(target)]), 1)
+            self.assertEqual(target.read_text(encoding="utf-8"), broken, "못 읽는 대상은 덮어쓰지 않는다")
+
     def test_result_codes_follow_the_machine_rule_and_are_unique(self):
         codes = {item["methodId"]: item["resultCode"] for item in self.catalog["methods"]}
         self.assertEqual(codes, {method_id: contract_result_code(method_id) for method_id in codes})

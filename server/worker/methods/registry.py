@@ -551,10 +551,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"method-catalog.json matches registry: {target}")
         return 0
     if args.write:
-        try:
-            previous = json.loads(target.read_text(encoding="utf-8")) if target.exists() else None
-        except ValueError:
-            previous = None
+        previous = None
+        if target.exists():
+            # 있는데 못 읽는 대상은 frame 변경 검사를 건너뛰지 않고 거절한다(없는 새 경로만 비교 없이 쓴다).
+            try:
+                previous = json.loads(target.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                print(f"existing catalog unreadable, not written: {target} ({type(exc).__name__})", file=sys.stderr)
+                return 1
         changed = frame_changes(previous, build_catalog())
         if changed:
             print("method frame changed (use a new methodId): " + ",".join(changed), file=sys.stderr)

@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-28T18:25:00+09:00
+Updated: 2026-11-28T18:33:11+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -26,7 +26,8 @@ Status: draft
 - stale: **그 틀의 활성 변경**(그 틀의 현재 활성 버전 ≠ 추천의 `baselineConfigVersionId`, 빼기로 비게 된 경우 포함) 또는 평가 세트/데이터 변경. 다른 틀의 활성화·빼기만으로는 stale이 아니다
 - 자동 비교 평가 상대 = 같은 틀의 활성 버전
 - 행 틀 항목의 종합(`composite`)은 지금처럼 항목 모델 1개 + 고정 룰 세트(PROCESS 판정 방법은 행 틀 모델뿐)
-- 시계열 틀: 지금 실행 가능한 시계열 방법이 없어 시계열 버전 항목은 `method_not_executable:<methodId>` 항목 실패다. 시계열 비교의 평가 단위·지표는 후속 계약
+- 시계열 틀 [확정 11/28 — 구현 전]: 시계열(`frame=trend`) 버전은 **비교 접수에서 거절**한다 — 후보나 자동 포함 기준선에 시계열 버전이 있으면 400 `comparison_frame_unsupported:trend`(같은 절 `comparison_frame_mixed`와 같은 접수 검증 400). 학습 뒤 자동 비교도 **생략**한다(자동 비교 절 — 접수했다가 모든 항목이 `method_not_executable`로 실패해 `comparison_all_items_failed`로 끝나지 않게 함). 시계열 비교의 평가 단위·지표가 정해지는 후속 계약에서 이 거절을 푼다
+- 저장된 값의 틀 [확정 11/28 — 구현 전]: 틀 키가 없는 과거 비교 결과(`run_config_comparisons`의 `input_spec`·`summary`, 추천 원소)는 **`frame` 없음 = `row`**로 읽는다(활성 집합 스냅샷 규칙과 같음 — 11/28 전 비교는 모두 행 단위 IF)
 
 ## v1 구현 범위(11/13) — 이 절이 아래 초안보다 우선
 
@@ -541,7 +542,7 @@ Status: draft
 
 - 트리거: **새 모델 버전 생성 성공** — train 작업 성공(`createdFrom.kind=train`; 조합 저장 경로는 없음 — [model-version.md](model-version.md) Q-M5 확정). `duplicateOf`가 있는 저장(200)·버전 `executable=false`·`operationalEligibility.eligible=false`(prepared)는 생략하고 사유 기록
 - 접수 주체·시점: API가 생성 결과 확정 **뒤** 별도 트랜잭션으로 `POST /api/jobs kind=compare`와 같은 경로로 접수(요청 관리자 승계 — `run_jobs_v03_contract` 분기 유지, [queues.md](queues.md) 변경 제안 절). `input_spec.auto = true`, `Idempotency-Key = auto-compare:<configVersionId>:<evaluationSetId>`(중복 실행 방지; 같은 버전·같은 세트는 1회)
-- 비교 대상: 새 버전 + **같은 `modelKey`의 현재 활성 버전**(자동 포함 규칙 그대로, 9.4; [확정 11/28 — 구현 전] 같은 틀의 활성 버전). 그 종류의 활성이 없으면 새 버전만(추천 없음 `active_missing`, 결과 표는 제공). 다른 종류의 활성 버전은 자동 비교에 넣지 않음(사람이 수동 비교로 섞을 수 있음)
+- 비교 대상: 새 버전 + **같은 `modelKey`의 현재 활성 버전**(자동 포함 규칙 그대로, 9.4; [확정 11/28 — 구현 전] 같은 틀의 활성 버전). 그 종류의 활성이 없으면 새 버전만(추천 없음 `active_missing`, 결과 표는 제공). 다른 종류의 활성 버전은 자동 비교에 넣지 않음(사람이 수동 비교로 섞을 수 있음). [확정 11/28 — 구현 전] 새 버전이 시계열(`frame=trend`)이면 자동 비교를 접수하지 않고 `latestComparison: {auto: true, status: "skipped", reason: "comparison_frame_unsupported:trend"}`로 남긴다("두 틀 단위 비교" 절)
 - 기본 평가 세트 선택 순서(같은 `modelKey` 계열을 같은 세트로 이어 보도록 조정): ① 학습 요청의 `evaluationSetId` ② source의 기본 세트(`ops_sources` 설정 가칭 `default_evaluation_set_id`, 관리자가 세트 목록에서 [기본으로 지정]) ③ **같은 `modelKey` 활성 버전의 최근 비교(`latestComparison`)가 쓴 세트**(`status=ready`; [확정 11/28 — 구현 전] 같은 **틀**의 활성 버전) ④ 같은 snapshot·`purpose=validation`·`status=ready`인 가장 최근 세트 ⑤ 없으면 **생략** + `latestComparison: {auto: true, status: "skipped", reason: "no_default_evaluation_set"}` (세트를 자동 생성하지 않음 — 합성 생성은 사람의 선택)
 - 겹침: 새 버전의 학습 train이 세트 행과 겹치면 그 항목만 `training_evaluation_overlap`(현행 규칙). 세트 ④ 선택 시 같은 snapshot이면 분할이 서로소라 구조적으로 안 겹침(10/28 5.4); ③은 다른 snapshot일 수 있어 겹침 검사가 실제로 걸릴 수 있음
 - 표시: 모델 버전 목록 `latestComparison.auto`, 작업 목록 `kind=compare`·`auto` 필터. 완료 알림·배지는 WebUI(`notifications.md`) — 자동 교체는 여전히 없음, 추천 계산은 수동 비교와 동일

@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-28T18:25:00+09:00
+Updated: 2026-11-28T18:33:11+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -105,7 +105,7 @@ Status: draft
 - 검증 위치 [#111 구현, #116 반영]: `modelKey`·`parameters` 검증은 **워커**(`trainer/runner.py` → `methods.registry.resolve_training_method`)가 큐에 담긴 `input_spec`을 카탈로그 기준으로 수행 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`; 형식은 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 키 부재(v1·v2 요청)는 IF 기본값. **`rule_only` 요청도 같은 검증을 먼저 거치므로 잘못된 `parameters`가 있으면 `method_parameters_invalid:<methodId>`로 거절**(`model_not_selected` 검사보다 앞). API의 접수 단계 검증(카탈로그 기준 422·`parameters` 전달)은 #128 구현 — [trainer-service.md](trainer-service.md) 요청·발견 API 절
 - **임시 예외(#128) 종료 [구현, 학습 제외 구간 개방]**: v3 생성 전에는 `modelKey`·`parameters`와 v1 `detectionPolicy`를 함께 보내는 요청을 접수해 schemaVersion 1 구성을 만들었다. 이제 API(`jobRoutes.ts`)가 아래 규칙을 그대로 적용하고 화면은 v3 요청만 보낸다([models-ui.md](models-ui.md) 요청 본문). API의 v3 키는 `modelKey`·`parameters`·`excludedIntervals`·`timeBasis`이고(`evaluationSetId`는 아직 접수하지 않아 400 `invalid_job_request`), v3 요청의 `ruleVersionIds` 키는 400 `invalid_job_request`. v3 요청의 `input_spec`에는 `modelKey`를 항상 싣는다(생략이면 `iforest` — `timeBasis=persisted_at`·`parameters: null`은 남기지 않으므로 워커 판별 키를 남김)
 - **v3 train 요청에는 `ruleVersionIds`·`detectionPolicy`가 없음** [확정 11/02 Q-M1]: 정책은 운영 설정 전역 값이므로 v3 키(`modelKey`·`parameters`·`excludedIntervals`·`timeBasis`·`evaluationSetId` 중 하나라도)가 있는 요청에 `detectionPolicy` 키가 있으면 400 `invalid_detection_policy`. 단 현행 API는 `evaluationSetId`를 아직 받지 않아, 이 키가 있는 train 요청은 허용 키 검사에 먼저 걸려 `detectionPolicy` 유무와 관계없이 400 `invalid_job_request`다(`jobRoutes.ts`). v1 형식 요청(`{mode, deadlineMs, combination}` 필수, v3 키 없음)은 v1·v2 구성 생성 경로로 계속 처리; v1 형식과 v2 객체 혼용도 400 [유지 #74 N16]
-- 성공 시 자동 비교 평가 접수(10/21 §4.8, [config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절) — 비교 상대는 **같은 `modelKey`의 활성 버전** → [확정 11/28 — 구현 전] **같은 틀의 활성 버전**
+- 성공 시 자동 비교 평가 접수(10/21 §4.8, [config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절) — 비교 상대는 **같은 `modelKey`의 활성 버전** → [확정 11/28 — 구현 전] **같은 틀의 활성 버전**. 시계열(`frame=trend`) 버전은 자동 비교를 생략한다(비교 접수 거절 `comparison_frame_unsupported:trend`, config-comparison-evaluation.md "두 틀 단위 비교" 절)
 - 틀 [확정 11/28 — 구현 전]: 학습 요청 본문에 틀 키를 두지 않는다. 틀은 `modelKey` → `ml:<modelKey>` → 카탈로그 `frame`으로 정해지고, 학습 결과 `ml_config_models.training_settings.frame`에 기록한다(아래 "두 틀 — 활성 집합 규칙" 절). 허용 키 검사는 그대로라 틀 키를 보내면 400 `invalid_job_request`
 - 워커 판별 [#132 구현]: `detectionPolicy` 키가 없고 v3 키가 하나라도 있으면 schemaVersion 3을 만든다. 둘 다 있거나 v3 키가 없으면 schemaVersion 1·2 경로이고 리비전을 읽지 않는다. v3 요청의 `ruleVersionIds` 값은 `invalid_job_input`. 아직 적용하지 못하는 `timeBasis=esb_occurred_at`(모든 경로)과 schemaVersion 1·2 경로의 `excludedIntervals`는 워커도 `config_schema_not_supported_yet`으로 끝낸다(무시해서 성공시키지 않음). schemaVersion 3 경로의 `excludedIntervals`는 선정 정책 v2로 적용한다([trainer-service.md](trainer-service.md) 선정 정책 v2 절). `parameterSource`는 요청 `parameters`가 비어 있지 않으면 `user`, 그 밖(키 없음·`null`·빈 객체)은 `catalog_default`. prepared 학습은 schemaVersion 1 그대로
 
@@ -243,7 +243,7 @@ Status: draft
   - **"탐지 방법 0개"(`detection_methods_empty`) = 행 판정 방법 0개**: 켜진 하드룰 + 켜진 소프트룰 + **행 틀 활성 모델** = 0. 시계열 모델만 있고 켜진 룰이 0개인 결과 상태도 422 `detection_methods_empty`(룰 세트 저장·`retire`·`replace`·`restore` — 공통 검사 (1)과 같은 자리)
   - **`n_ml` = 행 틀 활성 모델 수**(0 또는 1). PROCESS 판정의 ML 방법은 행 틀 모델뿐이고 시계열 틀 모델은 PROCESS 판정 방법이 아니다. 공통 검사 (2) 정책 정합의 `n_ml`도 이 값
 - 비교 평가·교체 추천은 틀 단위([config-comparison-evaluation.md](config-comparison-evaluation.md) "두 틀 단위 비교" 절): `acceptedRecommendation` stale 기준 = **같은 틀의 활성 변경**(그 틀의 현재 활성 버전 ≠ 추천 기준선, 빼기로 비게 된 경우 포함), 다른 틀의 활성화·빼기만으로는 stale 아님. 자동 비교 상대 = 같은 틀의 활성 버전
-- 시계열 버전: 지금 시계열 틀에는 실행 가능한 방법이 없어 시계열 버전은 기존 gate의 `not_executable`로 활성화되지 않는다. 시계열 버전의 적용 관문·실행 가능 표시(`executable.trend`)는 후속 계약
+- 시계열 버전: 지금 시계열 틀에는 실행 가능한 방법이 없어 시계열 버전은 기존 gate의 `not_executable`로 활성화되지 않는다. 비교 평가도 접수에서 거절하고 학습 뒤 자동 비교는 생략한다(`comparison_frame_unsupported:trend`). 시계열 버전의 적용 관문·실행 가능 표시(`executable.trend`)는 후속 계약
 
 ## 운영 설정 — `detectionPolicy` 전역 값 [확정 11/02 Q-M1, Q-M2 귀결 — Detector 11/02 동의]
 

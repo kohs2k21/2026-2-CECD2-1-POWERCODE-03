@@ -239,7 +239,7 @@ def _active_models(items: Any) -> tuple[ActiveModel, ...]:
     return tuple(models)
 
 
-# 고정은 시도마다 일어나므로 같은 불일치 로그는 (활성 집합 리비전, methodId)마다 한 번만 남긴다.
+# 고정은 시도마다 일어나므로 같은 불일치 로그는 (활성 집합 리비전, methodId, 스냅샷 frame)마다 한 번만 남긴다.
 _LOGGED_FRAME_MISMATCH: set[tuple[Any, str, str]] = set()
 
 

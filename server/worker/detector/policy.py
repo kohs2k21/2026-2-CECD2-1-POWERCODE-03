@@ -8,7 +8,8 @@ import time
 from typing import Callable
 
 # 방법 실행 슬롯(룰 레인·모델) 수 = 프로세스의 동시 판정 수. 기본 2는 폴링 1 + 직접 전달 1(단일 run(), Trainer 비교 평가).
-# Detector 서비스(runner.run_workers)는 시작 때 configure_capacity(작업자 수 + 1)로 바꾼다(detection-decision.md D20).
+# Detector 서비스(runner.run_workers)는 시작 때 configure_capacity(작업자 수 + 1, 직접 전달이 없는 자식 프로세스는 작업자 수)로
+# 바꾼다(프로세스마다 따로, detection-decision.md D20).
 DEFAULT_CAPACITY = 2
 _LANES = ("rule", "ml")
 _POOLS = {name: ThreadPoolExecutor(max_workers=DEFAULT_CAPACITY, thread_name_prefix="detection-"+name) for name in _LANES}

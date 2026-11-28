@@ -71,7 +71,7 @@ class _Harness:
         enter(patch.object(runner, "claim", self.claim))
         enter(patch.object(runner, "active_config", lambda _conn: self.record("active_config")))
         enter(patch.object(runner, "process_detection_message",
-                           lambda _conn, message, _root: self.record("process", message)))
+                           lambda _conn, message, _root, **_k: self.record("process", message)))
         enter(patch.object(applications, "prepare_active", lambda *_a: self.record("prepare")))
         enter(patch.object(applications, "process_application_once", lambda *_a: self.record("application")))
         enter(patch.object(jobs, "claim_waiting_input", lambda _conn: None))

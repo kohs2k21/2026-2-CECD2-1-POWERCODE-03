@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 import model_adapters
 from feature_fit import requires_fit
+from detector.heartbeat import SharedLeaseHeartbeat
 from detector.input_reader import load_process_observation
 from detector.policy import configure_capacity
 from feature_worker import active_config, active_source
@@ -26,15 +27,21 @@ from telemetry import cost_family, queue_wait_ms
 LOGGER = logging.getLogger(__name__)
 
 
-def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
-    """메시지 1건을 판정하고 저장한다(한 건 경로). 실패는 시도 실패를 기록한 뒤 예외로 올린다(호출자가 큐 fail)."""
-    _process_message(conn, message, root, None)
+def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None,
+                              heartbeats: Any = None) -> None:
+    """메시지 1건을 판정하고 저장한다(한 건 경로). 실패는 시도 실패를 기록한 뒤 예외로 올린다(호출자가 큐 fail).
+
+    heartbeats: 시도의 임대 갱신을 맡길 `detector.heartbeat.SharedLeaseHeartbeat`(작업자 루프·직접 전달 서버가 하나씩 둔다).
+    None이면(단일 run()·시험의 직접 호출) 지금처럼 시도마다 `TrainingLeaseHeartbeat` 스레드를 띄운다."""
+    _process_message(conn, message, root, None, heartbeats)
 
 
-def _process_message(conn: Any, message: ClaimedMessage, root: Path | None, pending: list | None) -> None:
+def _process_message(conn: Any, message: ClaimedMessage, root: Path | None, pending: list | None,
+                     heartbeats: Any = None) -> None:
     """pending이 None이면 한 건 경로 그대로다. 목록이면(묶음) v04 첫 판정만 저장 직전에서 멈추고 PendingSave를 목록에
     넣는다(그 건의 heartbeat는 멈추지 않고 넘긴다 — 정지는 process_detection_batch 몫). 그 밖(옛 메시지 복구·v03·재판정
-    시도)은 목록에 넣지 않고 한 건 경로와 똑같이 끝까지 처리한다. 목록에 넣기 전까지의 실패는 한 건 경로와 같은 처리다."""
+    시도)은 목록에 넣지 않고 한 건 경로와 똑같이 끝까지 처리한다. 목록에 넣기 전까지의 실패는 한 건 경로와 같은 처리다.
+    heartbeats는 process_detection_message와 같다(시작·정지 시점과 lost 확인은 어느 쪽이든 같다)."""
     from detector.computation import load_context, compute, legacy_feature_hash
     from detector.jobs import detect_contract,enqueue_observation,input_config
     from trainer.runner import _claim_job, _finish
@@ -74,8 +81,11 @@ def _process_message(conn: Any, message: ClaimedMessage, root: Path | None, pend
         return
     job, attempt_id, attempt_token = claimed
     queue_wait = queue_wait_ms(conn, message, attempt_id)
-    heartbeat = TrainingLeaseHeartbeat(lambda: psycopg.connect(os.environ["DATABASE_URL"]),
-        message,job["id"],attempt_id,attempt_token)
+    if heartbeats is None:
+        heartbeat = TrainingLeaseHeartbeat(lambda: psycopg.connect(os.environ["DATABASE_URL"]),
+            message,job["id"],attempt_id,attempt_token)
+    else:
+        heartbeat = heartbeats.lease(message,job["id"],attempt_id,attempt_token)
     heartbeat.start()
     deferred = False
     try:
@@ -233,7 +243,7 @@ def _renew_waiting(conn: Any, messages: list[ClaimedMessage]) -> list[ClaimedMes
 
 
 def process_detection_batch(conn: Any, messages: list[ClaimedMessage], root: Path | None, *,
-                            renew_seconds: float = LEASE_RENEW_SECONDS) -> None:
+                            renew_seconds: float = LEASE_RENEW_SECONDS, heartbeats: Any = None) -> None:
     """한 번에 임대한 메시지 여러 건(임대 순서)을 처리한다. 저장 직전까지는 건마다 한 건 경로와 같다.
 
     - 건마다 차례로 _process_message: 작업 claim(시도 행)·heartbeat 시작·입력 manifest 확인·재판정 참조·운영 상태 고정·
@@ -247,6 +257,7 @@ def process_detection_batch(conn: Any, messages: list[ClaimedMessage], root: Pat
     - 모은 건의 heartbeat는 어느 경로든(예외 포함) finally에서 모두 멈춘다(이미 멈춘 건은 다시 불러도 바로 끝난다).
       예외로 나갈 때는 먼저 ROLLBACK해 이 연결이 쥔 행 잠금을 푼다. heartbeat 갱신이 그 행을 기다리면 정지(join)가 끝나지
       않기 때문이다(한 건 경로도 except의 ROLLBACK 뒤 finally에서 heartbeat를 멈춘다).
+    - heartbeats: 건마다의 임대 갱신을 맡길 작업자 루프 공유 heartbeat(process_detection_message와 같음).
     """
     from detector.attempt_v04 import save_attempt, save_batch
     pending: list = []
@@ -261,7 +272,7 @@ def process_detection_batch(conn: Any, messages: list[ClaimedMessage], root: Pat
                     break
             message = waiting.pop(0)
             try:
-                _process_message(conn, message, root, pending)
+                _process_message(conn, message, root, pending, heartbeats)
                 conn.commit()
             except Exception as exc:  # noqa: BLE001 - 한 건 경로 iterate와 같은 실패 처리
                 _fail_message(conn, message, exc)
@@ -311,15 +322,18 @@ class _Loop:
     - batch_size: 첫 claim(detect 작업)이 한 번에 임대할 최대 수. 1이면 claim 한 건(지금 경로 그대로), 2 이상이면
       claim_many로 지금 있는 것만 최대 그만큼 가져온다(채우려고 기다리지 않음). 원천 범위·대기 입력 claim은 늘 한 건이다.
       가져온 것이 2건 이상일 때만 process_detection_batch, 1건이면 한 건 경로다.
+    - heartbeats: 이 루프의 시도 임대 갱신을 맡는 `SharedLeaseHeartbeat`(run_workers 작업자마다 1개). None이면 시도마다
+      TrainingLeaseHeartbeat 스레드다(run()).
     시각(time.monotonic)은 반복마다 한 번 읽는다.
     """
 
     def __init__(self, conn: Any, root: Path | None, worker_id: str, *, reconcile: bool = True,
                  reconcile_seconds: float = RECONCILE_SECONDS, expire_in_claim: bool = True,
-                 fixed_refresh_seconds: float | None = None, batch_size: int = 1) -> None:
+                 fixed_refresh_seconds: float | None = None, batch_size: int = 1, heartbeats: Any = None) -> None:
         if type(batch_size) is not int or not 1 <= batch_size <= MAX_BATCH_SIZE:
             raise ValueError(f"invalid_detector_batch_size: 1~{MAX_BATCH_SIZE} 정수여야 한다")
         self.batch_size = batch_size
+        self.heartbeats = heartbeats
         self.conn, self.root, self.worker_id = conn, root, worker_id
         self.reconcile, self.reconcile_seconds = reconcile, reconcile_seconds
         self.expire_in_claim, self.fixed_refresh_seconds = expire_in_claim, fixed_refresh_seconds
@@ -403,11 +417,11 @@ class _Loop:
         if not messages:
             return False
         if len(messages) > 1:
-            process_detection_batch(conn, messages, self.root)
+            process_detection_batch(conn, messages, self.root, heartbeats=self.heartbeats)
             return True
         message = messages[0]
         try:
-            process_detection_message(conn, message, self.root)
+            process_detection_message(conn, message, self.root, heartbeats=self.heartbeats)
             conn.commit()
         except Exception as exc:
             _fail_message(conn, message, exc)
@@ -468,13 +482,20 @@ class WorkerFailed(RuntimeError):
 def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seconds: float = .25,
                 reconcile_seconds: float = RECONCILE_SECONDS,
                 fixed_refresh_seconds: float = FIXED_REFRESH_SECONDS, batch_size: int = 1,
-                stop: threading.Event | None = None, join_seconds: float = 10.0) -> None:
+                stop: threading.Event | None = None, join_seconds: float = 10.0,
+                capacity: int | None = None, cleanup: bool = True, process_index: int | None = None) -> None:
     """판정 루프 workers개를 스레드로 돌린다. 작업자마다 연결이 따로다.
 
-    - 시작 단계 prepare_active는 작업자를 띄우기 전에 한 번만 한다.
+    - 시작 단계 prepare_active는 작업자를 띄우기 전에 한 번만 한다(이 프로세스 안에서).
     - 방법 실행 슬롯(policy.configure_capacity)을 동시 판정 수 = workers + 1(직접 전달 몫)로 맞춘다. 슬롯이 동시 판정보다
-      적으면 겹친 판정의 룰·모델이 capacity(미판정)로 끝난다(detection-decision.md D20).
-    - dead 처리·정리는 0번 작업자만 reconcile_seconds마다 한다. 모든 작업자의 detection claim은 dead 처리 UPDATE를 건너뛴다.
+      적으면 겹친 판정의 룰·모델이 capacity(미판정)로 끝난다(detection-decision.md D20). 슬롯은 프로세스마다 따로이므로
+      직접 전달 서버가 없는 자식 프로세스(service.run_processes)는 capacity=workers를 넘긴다.
+    - dead 처리·정리는 cleanup이 참일 때 0번 작업자만 reconcile_seconds마다 한다. 모든 작업자의 detection claim은 dead
+      처리 UPDATE를 건너뛴다. 여러 프로세스로 돌 때는 0번 프로세스만 cleanup=True다(서비스 전체에서 정리 담당 1개).
+    - 작업자마다 임대 갱신 스레드 1개(`detector.heartbeat.SharedLeaseHeartbeat`, 연결은 처음 갱신할 때 연다)가 그 작업자의
+      시도를 맡는다(시도마다 스레드를 띄우지 않는다). 작업자 연결을 닫은 뒤(행 잠금이 풀린 뒤) 멈춘다.
+    - process_index: 여러 프로세스로 돌 때 그 번호. 작업자 id·스레드 이름·로그에 `p<번호>-`를 붙여 프로세스를 가른다
+      (None이면 지금 이름 그대로).
     - batch_size: 작업자마다 detect 메시지를 한 번에 최대 그만큼 임대하고, v04 첫 판정은 트랜잭션 하나로 저장한다(_Loop).
       1이면 한 건 경로 그대로다. 서비스는 DETECTOR_BATCH_SIZE(기본 8)를 넘긴다. 판정은 작업자 안에서 차례로 하므로 동시
       판정 수(슬롯)는 그대로 workers + 1이다.
@@ -486,27 +507,32 @@ def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seco
     if type(batch_size) is not int or not 1 <= batch_size <= MAX_BATCH_SIZE:
         raise ValueError(f"invalid_detector_batch_size: 1~{MAX_BATCH_SIZE} 정수여야 한다")
     stop = stop or threading.Event()
-    configure_capacity(workers + 1)
+    configure_capacity(workers + 1 if capacity is None else capacity)
     with psycopg.connect(database_url) as conn:
         _prepare(conn, root)
-    failures: list[tuple[int, BaseException]] = []
-    base_id = f"detector-{uuid.uuid4()}"
+    failures: list[tuple[str, BaseException]] = []
+    prefix = "" if process_index is None else f"p{process_index}-"
+    base_id = f"detector-{prefix}{uuid.uuid4()}"
 
     def work(index: int) -> None:
+        label = f"{prefix}{index}"
         try:
-            with psycopg.connect(database_url) as conn:
-                loop = _Loop(conn, root, f"{base_id}-{index}", reconcile=index == 0,
-                             reconcile_seconds=reconcile_seconds, expire_in_claim=False,
-                             fixed_refresh_seconds=fixed_refresh_seconds, batch_size=batch_size)
-                while not stop.is_set():
-                    if not loop.iterate():
-                        stop.wait(poll_seconds)
+            with SharedLeaseHeartbeat(lambda: psycopg.connect(database_url, autocommit=True),
+                                      name=f"detector-heartbeat-{label}") as heartbeats:
+                with psycopg.connect(database_url) as conn:
+                    loop = _Loop(conn, root, f"{base_id}-{index}", reconcile=cleanup and index == 0,
+                                 reconcile_seconds=reconcile_seconds, expire_in_claim=False,
+                                 fixed_refresh_seconds=fixed_refresh_seconds, batch_size=batch_size,
+                                 heartbeats=heartbeats)
+                    while not stop.is_set():
+                        if not loop.iterate():
+                            stop.wait(poll_seconds)
         except BaseException as exc:  # noqa: BLE001 - 어떤 종료든 프로세스 실패로 올린다
-            LOGGER.error("detector worker %s failed", index, exc_info=exc)
-            failures.append((index, exc))
+            LOGGER.error("detector worker %s failed", label, exc_info=exc)
+            failures.append((label, exc))
             stop.set()
 
-    threads = [threading.Thread(target=work, args=(index,), name=f"detector-worker-{index}", daemon=True)
+    threads = [threading.Thread(target=work, args=(index,), name=f"detector-worker-{prefix}{index}", daemon=True)
                for index in range(workers)]
     for thread in threads:
         thread.start()

@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { frameLabels, frameOfModelKey, frameText, modelFrames } from "@/features/detection/models/modelFrames";
+import { useCapabilities } from "@/features/detection/models/useModels";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { paths } from "@/app/routes";
 import { DescriptionList } from "@/components/layout/DescriptionList";
@@ -283,6 +285,10 @@ const Head = ({ detail, context }: { detail: ComparisonDetail; context: Context 
   const { versions, set } = context;
   const status = comparisonStatus(detail.status, detail.items?.filter((item) => item.status === "failed").length ?? 0);
   const baselines = detail.baselines ?? [];
+  // 자리(틀): 기준 운영 버전·비교 모델의 모델 키 → 카탈로그 틀(modelFrames.ts). 모르면 —.
+  const methods = useCapabilities().data?.methodCatalog.methods;
+  const keys = [...baselines.map((baseline) => baseline.modelKey), ...(detail.items ?? []).map((item) => versions?.find((version) => version.id === item.configVersionId)?.modelKey ?? null)];
+  const frames = modelFrames.filter((frame) => keys.some((key) => frameOfModelKey(methods, key) === frame));
   const baselineText = baselines.length
     ? baselines.map(({ configVersionId }) => {
       const active = versions?.find((version) => version.id === configVersionId)?.active;
@@ -293,6 +299,7 @@ const Head = ({ detail, context }: { detail: ComparisonDetail; context: Context 
     <SectionCard title={`비교 평가 ${comparisonKey(detail).slice(0, 8)}`} action={<Badge variant={status.variant}>{status.label}</Badge>}>
       <DescriptionList
         items={[
+          { label: frameText.slot, value: frames.length ? frames.map((frame) => frameLabels[frame]).join(", ") : DASH },
           { label: "평가 세트", value: set ? `${set.displayName} · ${setKindLabel(set)}${set.synthetic ? `(${setUnitLabel(set)})` : ""}` : DASH },
           { label: "행 수 · 이상 정답", value: detail.evaluationSet?.rowCount !== undefined ? `${numberText(detail.evaluationSet.rowCount)}행 · ${set?.generation ? `${numberText(set.generation.truthCount)}행` : DASH}` : DASH },
           // v1: 룰 세트 버전은 접수 때 기록만 하고 항목은 각자의 평가 정책으로 평가한다(v1·v2 = 구성 룰). 같은 룰이라고 적지 않는다.

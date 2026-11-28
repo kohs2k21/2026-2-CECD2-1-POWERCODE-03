@@ -42,6 +42,7 @@ import { DecisionTimeline, mergeTimeline, recordEntries, timelineEntries } from 
 import { EvidenceSummaryCard } from "./EvidenceSummaryCard";
 import { useEvidenceSummaryOpen } from "../hooks/useTextStream";
 import { FeedbackEditDialog, WorkflowActions } from "./DecisionWorkflow";
+import { labelOfModelKey, type ModelLabel } from "@/features/detection/models/modelFrames";
 import { MethodResults } from "./MethodResults";
 import { ProcessFlowCard } from "./ProcessFlowCard";
 
@@ -55,8 +56,8 @@ const inputText = (evidence: EvidenceV3) => {
   return `${mode} · ${evidence.input.configurationScope === "input-validation" ? "선택한 후보 구성으로 검증" : "운영 구성"}`;
 };
 /** 방법 ID 목록 → 표시 이름(ID는 툴팁). */
-const methodsNode = (ids: string[]): ReactNode => {
-  const names = methodLabels(ids);
+const methodsNode = (ids: string[], models: readonly ModelLabel[]): ReactNode => {
+  const names = methodLabels(ids, models);
   return names.length ? <span title={ids.join(", ")}>{names.join(", ")}</span> : null;
 };
 /**
@@ -66,8 +67,8 @@ const methodsNode = (ids: string[]): ReactNode => {
 const riskNode = (detail: DecisionDetail, v4: EvidenceV4 | null): ReactNode => {
   if (detail.riskStatus !== "rated" && detail.riskStatus !== "unrated") return `${DASH} · 이상일 때만 표시`;
   const head = detail.riskStatus === "rated" && detail.riskLevel ? riskLevelLabels[detail.riskLevel] : "위험도 미정";
-  const by = detail.riskStatus === "rated" ? methodsNode(v4?.risk?.determinedBy ?? []) : null;
-  const unrated = methodsNode(v4?.risk?.unratedMethods ?? []);
+  const by = detail.riskStatus === "rated" ? methodsNode(v4?.risk?.determinedBy ?? [], detail.mlModels) : null;
+  const unrated = methodsNode(v4?.risk?.unratedMethods ?? [], detail.mlModels);
   return (
     <>
       {head}
@@ -97,10 +98,15 @@ const resultNode = (detail: DecisionDetail, v4: EvidenceV4 | null) => {
  * 모델 버전 상세는 판정 상세 주소를 returnTo로 넘겨 탐지 설정 뒤로가기가 이 판정으로 돌아온다(룰 설정은 메뉴 첫 화면이라 뒤로가기 줄이 없다).
  * 관련 평가는 판정 데이터에 평가 ID가 없어 링크를 두지 않는다(추정 금지).
  */
-const AdminLinks = ({ v4 }: { v4: EvidenceV4 | null }) => {
+const AdminLinks = ({ v4, models }: { v4: EvidenceV4 | null; models: readonly ModelLabel[] }) => {
   const location = useLocation();
   const state: DetectionReturnState = { returnTo: location.pathname + location.search };
   const versionIds = [...new Set((v4?.methodResults ?? []).flatMap((m) => (m.category === "ml" && m.modelVersionId ? [m.modelVersionId] : [])))];
+  // 버전의 모델 이름표: 그 버전을 쓴 ML 방법의 키 → 응답 mlModels(없으면 근거 구분 이름 그대로).
+  const labelOf = (id: string) => {
+    const methodId = v4?.methodResults.find((m) => m.category === "ml" && m.modelVersionId === id)?.methodId;
+    return methodId ? labelOfModelKey(models, methodId.slice(3)) : null;
+  };
   return (
     <div className="flex flex-wrap gap-2" data-admin-links="true">
       <Button asChild variant="outline" size="sm">
@@ -109,7 +115,7 @@ const AdminLinks = ({ v4 }: { v4: EvidenceV4 | null }) => {
       {versionIds.map((id) => (
         <Button key={id} asChild variant="outline" size="sm">
           <Link to={paths.detectionModel(id)} state={state} title={id}>
-            {adminLinkLabels.model(id)}
+            {adminLinkLabels.model(id, labelOf(id))}
           </Link>
         </Button>
       ))}
@@ -138,7 +144,10 @@ const SummaryCard = ({ detail, isAdmin }: { detail: DecisionDetail; isAdmin: boo
   if (config)
     items.push({
       label: "당시 운영 머신러닝 모델",
-      value: config.models.length ? config.models.map((m) => (m.adapterName ? `${m.modelKey}(${m.adapterName})` : m.modelKey)).join(", ") : "없음",
+      // 모델 이름표(mlModels)가 있으면 `행 단위 모델 · Isolation Forest`, 없으면 지금 표시 `<키>(<어댑터>)`.
+      value: config.models.length
+        ? config.models.map((m) => labelOfModelKey(detail.mlModels, m.modelKey) ?? (m.adapterName ? `${m.modelKey}(${m.adapterName})` : m.modelKey)).join(", ")
+        : "없음",
     });
   items.push(
     { label: "판정 단계", value: stageLabels[detail.stage] },
@@ -181,7 +190,7 @@ const SummaryCard = ({ detail, isAdmin }: { detail: DecisionDetail; isAdmin: boo
       <DescriptionList items={items.map((item) => ({ ...item, key: item.label }))} />
       {/* 와이어프레임 dRiskTable: 판정마다 기록된 위험도 단계표 버전(v4 composite.risk.levelTable이 있을 때만) */}
       {v4?.risk?.levelTable && <p className="text-xs text-muted-foreground">위험도 기준 표 {v4.risk.levelTable}</p>}
-      {isAdmin && <AdminLinks v4={v4} />}
+      {isAdmin && <AdminLinks v4={v4} models={detail.mlModels} />}
     </SectionCard>
   );
 };
@@ -200,16 +209,16 @@ const EvidenceCard = ({ detail }: { detail: DecisionDetail }) => {
     <SectionCard title="판정 근거" headingLevel={2}>
       {detail.kind === "final" && <DecisionDiagnostics decision={detail} />}
       {v4 ? (
-        <MethodResults evidence={v4} observedStatus={observedStatus} />
+        <MethodResults evidence={v4} observedStatus={observedStatus} models={detail.mlModels} />
       ) : (
-        <LegacyEvidence rules={rules} models={models} />
+        <LegacyEvidence rules={rules} models={models} labels={detail.mlModels} />
       )}
     </SectionCard>
   );
 };
 
 /** v3 판정 근거(과거 판정): 방법은 표시 이름(상태 규칙 = 이상 규칙, 그 밖의 등록 Rule = 이상 징후 규칙(과거 등록 Rule), U6), Rule 키는 툴팁. */
-const LegacyEvidence = ({ rules, models }: { rules: EvidenceV3["rules"]; models: EvidenceV3["models"] }) => (
+const LegacyEvidence = ({ rules, models, labels }: { rules: EvidenceV3["rules"]; models: EvidenceV3["models"]; labels: readonly ModelLabel[] }) => (
     <>
       <div className="grid gap-2">
         <h3 className="text-sm font-medium">Rule 판정 근거</h3>
@@ -255,8 +264,8 @@ const LegacyEvidence = ({ rules, models }: { rules: EvidenceV3["rules"]; models:
             <TableBody>
               {models.map((model, index) => (
                 <TableRow key={`${model.modelKey}-${index}`}>
-                  <TableHead scope="row" className="h-auto font-normal">
-                    {model.modelKey}
+                  <TableHead scope="row" className="h-auto font-normal" title={model.modelKey ?? undefined}>
+                    {labelOfModelKey(labels, model.modelKey) ?? model.modelKey}
                   </TableHead>
                   <TableCell>{model.anomalous === true ? "이상" : model.anomalous === false ? "정상 확인" : "미판정"}</TableCell>
                 </TableRow>

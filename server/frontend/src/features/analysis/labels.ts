@@ -15,6 +15,7 @@ import type {
 } from "./data/analysisApi";
 import { isProtocolRuleId, isRelationRuleId, type EvidenceGroup } from "./data/evidence";
 import { kindLabels as relationKindNames } from "@/features/detection/rules/candidates/candidateLabels";
+import { labelOfModelKey, type ModelLabel } from "@/features/detection/models/modelFrames";
 
 /** 이상 분석 화면 문구(와이어프레임 #93 analysis 용어). */
 export const categoryLabels: Record<Category, string> = {
@@ -241,7 +242,8 @@ export const evidenceGroupLabels: Record<EvidenceGroup, string> = {
  */
 export const adminLinkLabels = {
   ruleHistory: "룰 변경 기록 보기",
-  model: (modelVersionId: string) => `당시 ${evidenceGroupLabels.ml} ${modelVersionId.slice(0, 8)} 보기`,
+  /** 모델 이름표(`행 단위 모델 · Isolation Forest`)를 알면 그 이름, 모르면 근거 구분 이름 `머신러닝 모델`. */
+  model: (modelVersionId: string, modelLabel?: string | null) => `당시 ${modelLabel ?? evidenceGroupLabels.ml} ${modelVersionId.slice(0, 8)} 보기`,
 } as const;
 export const RELATION_VIOLATION = "규약 위반";
 export const RELATION_HELD = "관계 확인 보류";
@@ -279,8 +281,13 @@ export const resultCodeLabel = (code: string) => {
 };
 /**
  * 방법 표시 이름. 관계 규칙 `hard:rel-*`은 `관계 규칙`, 프로토콜 항목 `hard:proto-*`은 `정상 프로토콜`(근거 구분 이름 — 내부 id는 툴팁).
+ * ML 방법은 판정 응답의 모델 이름표(`mlModels` — 틀·표시 이름)를 알면 `행 단위 모델 · Isolation Forest`, 모르면(옛 응답·카탈로그에 없는 키) `머신러닝 모델(<key>)`.
  */
-export const methodLabel = (methodId: string): string | null => {
+export const methodLabel = (methodId: string, models?: readonly ModelLabel[]): string | null => {
+  if (methodId.startsWith("ml:") && methodId.length > 3) {
+    const label = labelOfModelKey(models, methodId.slice(3));
+    if (label) return label;
+  }
   if (isRelationRuleId(methodId)) return evidenceGroupLabels.relation;
   if (isProtocolRuleId(methodId)) return evidenceGroupLabels.protocol;
   if (methodId.startsWith("hard:")) return hardRuleNames[methodId] ? `이상 규칙(${hardRuleNames[methodId]})` : "이상 규칙";
@@ -301,7 +308,7 @@ export const ruleKeyLabel = (ruleKey: string, v4: boolean) =>
 /** v3 rules[].result 표시(판정 상세 Rule 판정 근거 표). */
 export const ruleResultLabels: Record<string, string> = { hit: "이상", no_hit: "정상 확인", unavailable: "미판정", not_applicable: "해당 없음" };
 /** 방법 ID 목록 → 표시 이름 목록(중복 제거, 알 수 없는 접두 제외). */
-export const methodLabels = (methodIds: string[]) => [...new Set(methodIds.flatMap((id) => methodLabel(id) ?? []))];
+export const methodLabels = (methodIds: string[], models?: readonly ModelLabel[]) => [...new Set(methodIds.flatMap((id) => methodLabel(id, models) ?? []))];
 
 /** 이상 징후 규칙 비교 연산자(세부 방법별 결과 표·룰 설정과 같은 기호). */
 export const operatorSymbols: Record<string, string> = { gte: "≥", gt: ">", lte: "≤", lt: "<" };
@@ -312,12 +319,12 @@ const unitText = (value: string, unit: string | null) => (unit ? `${numberText(v
  * 목록 행 이상 원인 한 건 문구(사용자 11/13). 저장값만 쓰고 이름은 기존 표시 이름(결과 코드·규칙 이름·카탈로그 이름)을 쓴다.
  * - 상태 규칙: `상태 F 실패`(+ ` · 응답 코드 E500`, 응답 코드 사전에 메시지가 있으면 ` (메시지)`), 그 밖의 이상 규칙: 승인 규칙 이름(결과 코드 → 이름)
  * - 이상 징후 규칙: `처리 시간 8,000 ms (기준 ≥ 5,000 ms)`, 과거 등록 Rule: `이상 징후 규칙(과거 등록 Rule)`
- * - 머신러닝 모델: `Isolation Forest 원점수 0.84 (판정선 0.61)`
+ * - 머신러닝 모델: `행 단위 모델 · Isolation Forest 원점수 0.84 (판정선 0.61)`(모델 이름표가 없으면 서버 modelName `Isolation Forest …`)
  */
 /** `응답 코드 <코드>` + 사전 메시지가 있으면 ` (<메시지>)`(contracts/response-codes-ui.md 5절). */
 export const responseCodeText = (responseCode: string, message: string | null | undefined) =>
   message ? `응답 코드 ${responseCode} (${message})` : `응답 코드 ${responseCode}`;
-export const causeText = (cause: DecisionCause, responseCode: string | null, responseCodeMessage: string | null = null) => {
+export const causeText = (cause: DecisionCause, responseCode: string | null, responseCodeMessage: string | null = null, models?: readonly ModelLabel[]) => {
   if (cause.category === "hard") {
     if (cause.methodId === "hard:process-status") {
       const status = cause.code ? resultCodeLabel(cause.code) : cause.observedStatus ? resultCodeLabel(`PROCESS_STATUS_${cause.observedStatus}`) : (methodLabel(cause.methodId) as string);
@@ -333,13 +340,15 @@ export const causeText = (cause: DecisionCause, responseCode: string | null, res
     if (cause.observedValue !== null) return `${field} ${unitText(cause.observedValue, cause.unit)}${criterion ? ` (${criterion})` : ""}`;
     return criterion ? `${field} (${criterion})` : field;
   }
-  const name = cause.modelName ?? (cause.methodId ? methodLabel(cause.methodId) : null) ?? "머신러닝 모델";
+  // 모델 이름표를 알면 `행 단위 모델 · Isolation Forest`, 모르면 서버 modelName 그대로(지금 표시).
+  const labeled = cause.methodId?.startsWith("ml:") ? labelOfModelKey(models, cause.methodId.slice(3)) : null;
+  const name = labeled ?? cause.modelName ?? (cause.methodId ? methodLabel(cause.methodId) : null) ?? "머신러닝 모델";
   const score = cause.score === null ? "" : ` 원점수 ${cause.score.toLocaleString("ko-KR", { maximumFractionDigits: 4 })}`;
   return `${name}${score}${cause.scoreThreshold ? ` (판정선 ${cause.scoreThreshold})` : ""}`;
 };
 /** 목록 행 이상 원인 줄: 첫 원인 + 더 있으면 ` 외 N건`. 원인이 없으면 null(줄 없음). */
-export const causesLine = (item: Pick<DecisionItem, "causes" | "responseCode"> & Partial<Pick<DecisionItem, "responseCodeMessage">>) => {
+export const causesLine = (item: Pick<DecisionItem, "causes" | "responseCode"> & Partial<Pick<DecisionItem, "responseCodeMessage" | "mlModels">>) => {
   const [first, ...rest] = item.causes;
   if (!first) return null;
-  return `${causeText(first, item.responseCode, item.responseCodeMessage ?? null)}${rest.length ? ` 외 ${rest.length}건` : ""}`;
+  return `${causeText(first, item.responseCode, item.responseCodeMessage ?? null, item.mlModels)}${rest.length ? ` 외 ${rest.length}건` : ""}`;
 };

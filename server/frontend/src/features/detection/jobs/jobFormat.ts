@@ -1,4 +1,5 @@
 import { paths, urlOptions } from "@/app/routes";
+import { frameOfMethod, modelLabelText } from "@/features/detection/models/modelFrames";
 import type { CatalogMethod } from "@/features/detection/models/modelsApi";
 import { DASH, dayText } from "@/features/operations/format";
 import type { JobListItem, JobResultLinks, JobStatus } from "./jobsApi";
@@ -51,10 +52,14 @@ const short = (value: unknown) => text(value)?.slice(0, 8) ?? DASH;
 const day = (value: unknown) => (text(value) ? dayText(String(value).slice(0, 10)) : DASH);
 const period = (input: Record<string, unknown>) => (text(input.from) || text(input.until) ? `${day(input.from)} ~ ${day(input.until)}` : null);
 
-/** 모델 키 → 방법 카탈로그 표시 이름(없으면 키 그대로). 키 생략 학습은 기본 IF다(trainer-service.md). */
+/**
+ * 모델 키 → `행 단위 모델 · Isolation Forest`(틀 이름 · 카탈로그 표시 이름, modelFrames.ts). 틀을 모르면 표시 이름, 카탈로그에 없으면 키 그대로.
+ * 키 생략 학습은 기본 IF다(trainer-service.md).
+ */
 export const modelName = (methods: CatalogMethod[] | undefined, key: unknown) => {
   const modelKey = text(key) ?? "iforest";
-  return methods?.find((method) => method.methodId === `ml:${modelKey}`)?.displayName ?? modelKey;
+  const method = methods?.find((item) => item.methodId === `ml:${modelKey}`);
+  return modelLabelText(frameOfMethod(method), method?.displayName) ?? method?.displayName ?? modelKey;
 };
 
 export type JobNames = {

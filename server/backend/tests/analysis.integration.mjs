@@ -160,6 +160,8 @@ try {
   assert.deepEqual(byId.get(J.interim.id).causes, [cause({ methodId: 'hard:process-status', code: 'PROCESS_STATUS_F' }), elapsedCause],
     'interim payload causes in basis order');
   assert.deepEqual(byId.get(D.v4Final.id).causes, [elapsedCause]);
+  // 모델 이름표(mlModels, analysis-ui.md 추가 필드): evidence의 ML 모델 키마다 카탈로그 표시 이름·틀
+  assert.deepEqual(byId.get(D.v4MlOnly.id).mlModels, [{ modelKey: 'iforest', methodName: 'Isolation Forest', frame: 'row' }]);
   for (const other of [D.normal, D.partialFalse, D.unavailable, D.replaced, J.pending, J.failed, J.noFinal])
     assert.deepEqual(byId.get(other.id).causes, [], `no causes without an anomaly signal ${other.id}`);
 

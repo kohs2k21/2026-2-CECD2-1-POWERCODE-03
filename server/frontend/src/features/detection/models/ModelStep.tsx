@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { CatalogMethod } from "./modelsApi";
+import { methodTrainable } from "./modelFrames";
 import { METHOD_DESCRIPTIONS, modelKeyOf, parameterRows, parameterValue } from "./trainDraft";
 import { MethodStatus } from "./VersionList";
 
@@ -52,7 +53,10 @@ const ParameterTable = ({ method, values, onChange }: { method: CatalogMethod; v
   </Table>
 );
 
-/** 3단계 모델·파라미터: 카탈로그 `methods[]` 전부 표시, `executable.process=false`는 선택 불가(사유 문구 없이 비활성). 파라미터는 선택한 모델만. */
+/**
+ * 3단계 모델·파라미터: 받은 `methods`(새 학습의 틀에 속한 카탈로그 방법, TrainArea가 거른다) 표시, 학습할 수 없는 방법(modelFrames.ts `methodTrainable`)은
+ * 선택 불가(사유 문구 없이 비활성). 파라미터는 선택한 모델만.
+ */
 export const ModelStep = ({ methods, method, values, onSelect, onChange, onReset }: {
   methods: CatalogMethod[];
   method: CatalogMethod | null;
@@ -69,8 +73,8 @@ export const ModelStep = ({ methods, method, values, onSelect, onChange, onReset
         </TableHeader>
         <TableBody>
           {methods.map((item) => (
-            <TableRow key={item.methodId} className={cn(!item.executable.process && "text-muted-foreground")}>
-              <TableCell><RadioGroupItem value={modelKeyOf(item)} disabled={!item.executable.process} aria-label={`${item.displayName} 선택`} /></TableCell>
+            <TableRow key={item.methodId} className={cn(!methodTrainable(item) && "text-muted-foreground")}>
+              <TableCell><RadioGroupItem value={modelKeyOf(item)} disabled={!methodTrainable(item)} aria-label={`${item.displayName} 선택`} /></TableCell>
               <TableCell><span className="grid"><span>{item.displayName}</span><span className="font-mono text-xs text-muted-foreground">{item.methodId}</span></span></TableCell>
               <TableCell className="whitespace-normal">{METHOD_DESCRIPTIONS[item.methodId] ?? ""}</TableCell>
               <TableCell><MethodStatus status={item.status} /></TableCell>

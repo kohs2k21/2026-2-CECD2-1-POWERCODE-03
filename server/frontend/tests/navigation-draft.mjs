@@ -39,7 +39,7 @@ const router = createMemoryRouter(
       ],
     },
   ],
-  { initialEntries: ["/detection/models?tab=all"] },
+  { initialEntries: ["/detection/models?frame=row"] },
 );
 let renderer;
 await act(async () => {

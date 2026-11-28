@@ -1,3 +1,4 @@
+import { parseModelLabel, type ModelLabel } from "@/features/detection/models/modelFrames";
 import { HttpError, httpClient } from "@/services/api/client";
 import { getStoredToken } from "@/services/auth/session";
 
@@ -27,10 +28,12 @@ export type OperationsOverview = {
   /** 구성 없이(v04) 운영되는 룰 세트·활성 모델 집합 버전(선택). null = 확인 불가. */
   operationalState?: OperationalState | null;
 };
+/** 운영 모델 한 개: 키 + 서버가 카탈로그로 채운 표시 이름·틀(operations-ui.md 추가 필드, 없거나 모르면 null). */
+export type OperationsModel = { modelKey: string; adapterName?: string } & Omit<ModelLabel, "modelKey">;
 export type OperationalState = {
   ruleSetRevision?: number;
   activeModelSetRevision?: number;
-  models: { modelKey: string }[];
+  models: OperationsModel[];
 };
 export type ActiveConfiguration = {
   configVersionId: string;
@@ -40,7 +43,7 @@ export type ActiveConfiguration = {
   detectionMode?: string;
   ruleCount?: number;
   ruleSeverityCounts: Partial<Record<"info" | "warning" | "critical", number>>;
-  models: { modelKey: string; adapterName?: string }[];
+  models: OperationsModel[];
 };
 export const record = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === "object" && !Array.isArray(v);
 export const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
@@ -89,8 +92,9 @@ const parseActiveConfiguration = (value: Record<string, unknown>): ActiveConfigu
     if (integer(count)) result.ruleSeverityCounts[level] = count;
   }
   if (Array.isArray(value.models)) for (const model of value.models) {
-    if (!record(model) || typeof model.modelKey !== "string" || !model.modelKey) continue;
-    result.models.push(typeof model.adapterName === "string" ? { modelKey: model.modelKey, adapterName: model.adapterName } : { modelKey: model.modelKey });
+    const label = parseModelLabel(model);
+    if (!label || !record(model)) continue;
+    result.models.push(typeof model.adapterName === "string" ? { ...label, adapterName: model.adapterName } : label);
   }
   return result;
 };
@@ -99,7 +103,8 @@ const parseOperationalState = (value: Record<string, unknown>): OperationalState
   if (integer(value.ruleSetRevision)) result.ruleSetRevision = value.ruleSetRevision;
   if (integer(value.activeModelSetRevision)) result.activeModelSetRevision = value.activeModelSetRevision;
   if (Array.isArray(value.models)) for (const model of value.models) {
-    if (record(model) && typeof model.modelKey === "string" && model.modelKey) result.models.push({ modelKey: model.modelKey });
+    const label = parseModelLabel(model);
+    if (label) result.models.push(label);
   }
   return result;
 };

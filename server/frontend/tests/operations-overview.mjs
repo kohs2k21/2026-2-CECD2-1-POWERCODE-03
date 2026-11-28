@@ -111,19 +111,28 @@ const overview = parseOperationsOverview({ observedAt: "2026-11-03T01:00:00.000Z
   activeConfiguration: { configVersionId: "cfg", sourceId: "src", ruleCount: 2, ruleSeverityCounts: { warning: 1, critical: -1, secret: 3 },
     models: [{ modelKey: "iforest", adapterName: "sklearn-iforest", path: "/models/x" }, { bad: true }], token: "x" } });
 assert.deepEqual(overview.activeConfiguration, { configVersionId: "cfg", sourceId: "src", ruleCount: 2, ruleSeverityCounts: { warning: 1 },
-  models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }] });
+  models: [{ modelKey: "iforest", methodName: null, frame: null, adapterName: "sklearn-iforest" }] }, "label fields absent → null (old server)");
 assert.equal(parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, activeConfiguration: null }).activeConfiguration, null);
 assert.equal("activeConfiguration" in parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1 }), false);
 // 구성 없이(v04) 운영되는 룰 세트·활성 모델 집합 버전: 명시 필드만, 잘못된 버전·모델은 버린다.
 const v04Overview = parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, activeConfiguration: null,
   operationalState: { ruleSetRevision: 1, activeModelSetRevision: -1, models: [{ modelKey: "iforest", configVersionId: "c" }, { modelKey: "" }], extra: 1 } });
-assert.deepEqual(v04Overview.operationalState, { ruleSetRevision: 1, models: [{ modelKey: "iforest" }] });
+assert.deepEqual(v04Overview.operationalState, { ruleSetRevision: 1, models: [{ modelKey: "iforest", methodName: null, frame: null }] });
+// 모델 이름표 추가 필드(operations-ui.md methodName·frame): 형식이 맞을 때만, 모르는 틀 값은 null.
+assert.deepEqual(parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, activeConfiguration: null,
+  operationalState: { ruleSetRevision: 1, models: [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "x", methodName: 3, frame: "window" }] } }).operationalState.models,
+[{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "x", methodName: null, frame: null }]);
 assert.equal(parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, operationalState: null }).operationalState, null);
 {
   const { activeConfigurationText } = await import("../src/features/operations/components/OverviewWidgets.tsx");
   const base = { observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, stages: {}, activeConfiguration: null };
-  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 1, models: [] } }), "룰 버전 1 · 머신러닝 모델 없음");
-  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 4, models: [{ modelKey: "iforest" }] } }), "룰 버전 4 · 머신러닝 모델 iforest");
+  // 틀별 한 줄: 운영 모델이 없으면 두 자리 모두 없음, 이름표가 있으면 틀 이름 + 표시 이름, 하나라도 모르면 지금 표시(키) 그대로.
+  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 1, models: [] } }), "룰 버전 1 · 행 단위 모델 없음 · 시계열 모델 없음");
+  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 4, models: [{ modelKey: "iforest", methodName: null, frame: null }] } }), "룰 버전 4 · 머신러닝 모델 iforest");
+  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 4, models: [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }] } }),
+    "룰 버전 4 · 행 단위 모델 Isolation Forest · 시계열 모델 없음");
+  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 4, models: [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "old", methodName: null, frame: null }] } }),
+    "룰 버전 4 · 머신러닝 모델 iforest, old", "one unknown model keeps the key form");
   assert.equal(activeConfigurationText({ ...base, operationalState: null }), "운영 구성 없음", "version unreadable");
   assert.equal(activeConfigurationText(base), "운영 구성 없음");
 }
@@ -433,9 +442,16 @@ await act(async () => view.renderer.unmount());
 bodies["/api/operations/overview"] = { ...overviewBody, activeConfiguration: null, activeConfigurationVersion: undefined,
   operationalState: { ruleSetRevision: 1, activeModelSetRevision: 0, models: [] } };
 view = await renderAs("user", "/operations");
-await wait(() => view.text().includes("현재 운영: 룰 버전 1 · 머신러닝 모델 없음"), "v04 header shows the rule set version");
-assert(view.text().includes("룰 · 버전 1") && view.text().includes("머신러닝 모델 · 없음"), "v04 active widget");
+await wait(() => view.text().includes("현재 운영: 룰 버전 1 · 행 단위 모델 없음 · 시계열 모델 없음"), "v04 header shows the rule set version");
+assert(view.text().includes("룰 · 버전 1") && view.text().includes("행 단위 모델 · 없음") && view.text().includes("시계열 모델 · 없음"), "v04 active widget: two frame lines");
 assert(!view.text().includes("운영 구성 없음"));
+await act(async () => view.renderer.unmount());
+// 서버가 모델 이름표(methodName·frame)를 붙이면 머리·위젯이 틀별 한 줄 + 표시 이름(키·어댑터 이름 대신).
+bodies["/api/operations/overview"] = { ...overviewBody, activeConfiguration: { ...overviewBody.activeConfiguration,
+  models: [{ modelKey: "iforest", adapterName: "sklearn-iforest", methodName: "Isolation Forest", frame: "row" }] } };
+view = await renderAs("user", "/operations");
+await wait(() => view.text().includes("현재 운영: 룰 2개 · 행 단위 모델 Isolation Forest · 시계열 모델 없음"), "labeled header");
+assert(view.text().includes("행 단위 모델 · Isolation Forest") && view.text().includes("시계열 모델 · 없음") && !view.text().includes("iforest(sklearn-iforest)"), "labeled widget lines");
 await act(async () => view.renderer.unmount());
 bodies["/api/operations/overview"] = overviewBody;
 

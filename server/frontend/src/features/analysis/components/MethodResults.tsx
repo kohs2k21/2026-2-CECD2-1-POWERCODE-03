@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { pathReasonLabels, pathReasonText } from "@/features/detection/rules/protocols/protocolLabels";
 import { reasonLabels as relationReasonLabels } from "@/features/detection/rules/candidates/candidateLabels";
+import type { ModelLabel } from "@/features/detection/models/modelFrames";
 import { evidenceGroups, type EvidenceV4, type MethodCategory, type MethodResult, type RelationNote } from "../data/evidence";
 import {
   DASH,
@@ -50,9 +51,9 @@ const hardConditions: Record<string, string> = {
   "hard:unregistered-interface": "프로토콜 설정에 없는 인터페이스의 거래(켜진 프로토콜 항목이 1개 이상일 때만)",
 };
 /** 관계 규칙 방법 표시: `관계 규칙(선행 관계)`(kind는 규칙 추천과 같은 이름), kind를 모르면 `관계 규칙`. */
-const methodName = (m: MethodResult) => {
+const methodName = (m: MethodResult, models?: readonly ModelLabel[]) => {
   const kind = m.group === "relation" ? relationKindLabel(m.relationKind) : null;
-  return kind ? `${evidenceGroupLabels.relation}(${kind})` : (methodLabel(m.methodId) ?? DASH);
+  return kind ? `${evidenceGroupLabels.relation}(${kind})` : (methodLabel(m.methodId, models) ?? DASH);
 };
 /** 관계 규칙 위반 기록(Detector relation_rules.py evidence) → 규칙 추천 위반 사유 이름(rule-candidates-ui.md 8절)·인계 비교 이름. */
 const violationNames: Record<string, string> = {
@@ -149,7 +150,8 @@ const categoryResultText = (result: string | null, methods: MethodResult[]) =>
             : "미판정"
           : (result ?? DASH);
 
-export const MethodResults = ({ evidence, observedStatus }: { evidence: EvidenceV4; observedStatus: string | null }) => {
+/** models: 판정 응답의 모델 이름표(`mlModels`) — ML 방법 이름 `행 단위 모델 · Isolation Forest`. 없으면 `머신러닝 모델(<key>)`. */
+export const MethodResults = ({ evidence, observedStatus, models }: { evidence: EvidenceV4; observedStatus: string | null; models?: readonly ModelLabel[] }) => {
   const methods = evidence.methodResults;
   // 근거 구분 순으로 묶되 같은 구분 안은 저장 순서 그대로(Detector 순서: 내장 → 관계 → 프로토콜)
   const grouped = methods.map((m, index) => ({ m, index })).sort((a, b) => groupRank(a.m) - groupRank(b.m) || a.index - b.index).map(({ m }) => m);
@@ -232,7 +234,7 @@ export const MethodResults = ({ evidence, observedStatus }: { evidence: Evidence
                 <TableRow key={m.methodId} data-method={m.methodId} data-group={m.group}>
                   <TableCell>{categoryNames[m.category]}</TableCell>
                   <TableHead scope="row" className="h-auto font-normal" title={m.methodId}>
-                    {methodName(m)}
+                    {methodName(m, models)}
                   </TableHead>
                   <TableCell title={m.status ?? undefined}>{runText(m)}</TableCell>
                   <TableCell>{resultText(m)}</TableCell>

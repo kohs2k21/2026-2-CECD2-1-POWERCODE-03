@@ -270,15 +270,15 @@ for (const [path, search, expected] of legacy) {
   assert.ok(column.props.className.split(" ").includes("flex-col") && !column.props.className.split(" ").includes("grid"), "sticky bar parent is a flex column");
   // 하위 화면에서도 그 메뉴 목차를 보이고, 누르면 메뉴 첫 화면의 영역으로 이동(push — 뒤로 가기로 하위 화면에 돌아온다)
   const toc = app.renderer.root.findByProps({ "data-slot": "side-nav-sub" }).findAllByType("a");
-  assert.deepEqual(toc.map((node) => [text(node.children), node.props.href]), [["버전", "/detection/models#models-versions"], ["새 학습", "/detection/models#models-train"]]);
+  assert.deepEqual(toc.map((node) => [text(node.children), node.props.href]), [["행 단위 모델", "/detection/models#models-row"], ["시계열 모델", "/detection/models#models-trend"], ["새 학습", "/detection/models#models-train"]]);
   assert.ok(toc.every((node) => node.props["aria-current"] === undefined), "no current section on a sub page");
   await app.cleanup();
 }
 {
-  // 첫 화면 목차는 지금 쿼리(탭·단계)를 지킨다
-  const app = await mount("/detection/models?tab=all");
+  // 첫 화면 목차는 지금 쿼리(틀·단계)를 지킨다
+  const app = await mount("/detection/models?frame=trend");
   const toc = app.renderer.root.findByProps({ "data-slot": "side-nav-sub" }).findAllByType("a");
-  assert.deepEqual(toc.map((node) => node.props.href), ["/detection/models?tab=all#models-versions", "/detection/models?tab=all#models-train"]);
+  assert.deepEqual(toc.map((node) => node.props.href), ["/detection/models?frame=trend#models-row", "/detection/models?frame=trend#models-trend", "/detection/models?frame=trend#models-train"]);
   await app.cleanup();
 }
 // 화면 이동 스크롤(useDetectionScroll): 경로가 바뀌면 맨 위, 해시면 그 영역, 쿼리만 바뀌면 그대로, 브라우저 뒤로(POP)는 건드리지 않음
@@ -322,6 +322,78 @@ for (const [path, search, expected] of legacy) {
     await act(async () => list.router.navigate(back.props.href));
     assert.deepEqual(calls.splice(0), [["top", 0, 0], ["into", "rules-response-codes", "start"]], "back returns to the card area");
     await list.cleanup();
+    // 머신러닝 모델 틀 구역 [새 학습]: 목차 `새 학습`과 같은 해시 이동(#models-train)이라 같은 주소를 다시 눌러도, 목차로 다른 영역에 갔다 와도 새 학습 영역으로 간다.
+    {
+      const { readFile } = await import("node:fs/promises");
+      const catalog = JSON.parse(await readFile(new URL("../../contracts/method-catalog.json", import.meta.url), "utf8"));
+      extraFetch = (target) => {
+        if (target.pathname === "/api/jobs/capabilities") return { methodCatalog: catalog, snapshot: { timeBasis: "persisted_at" } };
+        if (target.pathname === "/api/configurations") return { items: [], pagination: { limit: 50, hasMore: false, nextCursor: null } };
+        if (target.pathname === "/api/pipeline/sources") return { items: [] };
+        return null;
+      };
+      for (const id of ["models-row", "models-trend", "models-train"]) sections.set(id, fakeSection(id));
+      const models = await mount("/detection/models");
+      for (let i = 0; i < 20 && !models.links().some((node) => node.props["data-new-train"] === "row"); i++) await tick();
+      const newTrain = () => models.links().find((node) => node.props["data-new-train"] === "row");
+      assert.equal(newTrain().props.href, "/detection/models?frame=row&step=1#models-train", "[새 학습] carries the training area hash");
+      const click = async (node) => act(async () => node.props.onClick({ button: 0, metaKey: false, altKey: false, ctrlKey: false, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } }));
+      const settleScroll = async () => { for (let i = 0; i < 30; i++) await tick(); };
+      calls.length = 0;
+      await click(newTrain());
+      await settleScroll();
+      assert.deepEqual(calls.splice(0).filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "first click goes to the training area");
+      // 재현 1: 같은 주소를 다시 누른다 → 다시 새 학습 영역(맨 위로 가거나 그대로 있지 않음)
+      await click(newTrain());
+      await settleScroll();
+      const again = calls.splice(0);
+      assert.deepEqual(again.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "the same address again still goes to the training area");
+      assert.ok(!again.some(([kind]) => kind === "top"), "never back to the top");
+      // 재현 2: 목차 `행 단위 모델` → [새 학습] → 새 학습 영역(해시만 지운 이동으로 보고 맨 위로 올리지 않음)
+      const rowToc = models.links().find((node) => node.props.href?.endsWith("#models-row"));
+      await click(rowToc);
+      await settleScroll();
+      assert.deepEqual(calls.splice(0).filter(([kind]) => kind === "into"), [["into", "models-row", "start"]], "TOC goes to the row frame");
+      await click(newTrain());
+      await settleScroll();
+      const back = calls.splice(0);
+      assert.deepEqual(back.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "[새 학습] after the TOC goes to the training area");
+      assert.ok(!back.some(([kind]) => kind === "top"), "not to the top");
+      // 새 학습 영역 안의 단계 이동(현재 단계 링크 포함)은 영역 해시를 유지한다: `1. 기간`을 눌러도 맨 위로 가지 않고 영역에 머문다
+      const stepLink = (label) => models.links().find((node) => node.props["aria-current"] === "step" && text(node.children).includes(label));
+      assert.equal(stepLink("기간").props.href, "/detection/models?frame=row&step=1#models-train", "the current step link keeps the area hash");
+      await click(stepLink("기간"));
+      await settleScroll();
+      const stepCalls = calls.splice(0);
+      assert.ok(!stepCalls.some(([kind]) => kind === "top"), "the current step link never jumps to the top");
+      assert.deepEqual(stepCalls.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "stays on the training area");
+      assert.equal(models.router.state.location.hash, "#models-train");
+      // 틀 바꾸기 링크도 영역 해시를 유지
+      const switchLink = models.links().find((node) => text(node.children).trim() === "시계열 모델로 바꾸기");
+      assert.equal(switchLink.props.href, "/detection/models?frame=trend&step=1#models-train");
+      await click(switchLink);
+      await settleScroll();
+      assert.ok(!calls.splice(0).some(([kind]) => kind === "top"), "switching the frame stays in the area");
+      await models.cleanup();
+      // 새 비교 평가: 목차 `새 비교 평가` → 현재 단계 링크 → 맨 위로 가지 않음(같은 구조)
+      sections.set("evaluations-new", fakeSection("evaluations-new"));
+      const evaluations = await mount("/detection/evaluations");
+      for (let i = 0; i < 10; i++) await tick();
+      const newCompareToc = evaluations.links().find((node) => node.props.href?.endsWith("#evaluations-new"));
+      calls.length = 0;
+      await click(newCompareToc);
+      await settleScroll();
+      assert.deepEqual(calls.splice(0).filter(([kind]) => kind === "into"), [["into", "evaluations-new", "start"]]);
+      const compareStep = evaluations.links().find((node) => node.props["aria-current"] === "step");
+      assert.equal(compareStep.props.href, "/detection/evaluations?step=1#evaluations-new", "comparison step links keep the area hash");
+      await click(compareStep);
+      await settleScroll();
+      const compareCalls = calls.splice(0);
+      assert.ok(!compareCalls.some(([kind]) => kind === "top"), "the comparison step link never jumps to the top");
+      assert.equal(evaluations.router.state.location.hash, "#evaluations-new");
+      await evaluations.cleanup();
+      extraFetch = null;
+    }
   } finally {
     delete globalThis.window.scrollTo;
     delete globalThis.document;
@@ -423,24 +495,24 @@ for (const [path, search, expected] of legacy) {
   const { workStepCount, urlOptions } = routes;
   let probe;
   const Probe = () => {
-    probe = { step: useUrlStep(workStepCount.train), tab: useUrlOption("tab", urlOptions.modelsTab) };
+    probe = { step: useUrlStep(workStepCount.train), frame: useUrlOption("frame", urlOptions.modelFrame) };
     return null;
   };
   const router = createMemoryRouter([{ path: "/detection/models", element: React.createElement(Probe) }], {
-    initialEntries: ["/detection/models?tab=all&step=9"],
+    initialEntries: ["/detection/models?frame=trend&step=9"],
   });
   let renderer;
   await act(async () => {
     renderer = create(React.createElement(RouterProvider, { router }));
   });
   await tick();
-  assert.equal(location(router), "/detection/models?tab=all&step=3");
+  assert.equal(location(router), "/detection/models?frame=trend&step=3");
   assert.equal(router.state.historyAction, "REPLACE");
-  await act(async () => router.navigate("/detection/models?tab=bogus"));
+  await act(async () => router.navigate("/detection/models?frame=bogus"));
   await tick();
-  assert.equal(location(router), "/detection/models?tab=active", "invalid list tab is normalized");
+  assert.equal(location(router), "/detection/models?frame=row", "invalid frame is normalized to the first frame");
   assert.equal(probe.step.value, 1, "missing step means step 1");
-  assert.equal(probe.step.hrefFor(2), "/detection/models?tab=active&step=2", "other query values are kept");
+  assert.equal(probe.step.hrefFor(2), "/detection/models?frame=row&step=2", "other query values are kept");
   await act(async () => router.navigate(probe.step.hrefFor(2)));
   assert.equal(router.state.historyAction, "PUSH");
   assert.equal(probe.step.value, 2);
@@ -598,7 +670,7 @@ for (const [path, search, expected] of legacy) {
     // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황 → 뒤로. 사본이 지워지고 새 화면 투명이 풀리며, 기다리던 처리는 사본이 지워진 뒤 실행된다.
     {
       const { afterPageSwap } = await import("../src/components/layout/PageFade.tsx");
-      const app = await mount("/detection/models?tab=all", "admin", nodeMock);
+      const app = await mount("/detection/models?frame=row", "admin", nodeMock);
       copies.length = 0;
       seq.length = 0;
       await act(async () => app.router.navigate("/operations"));
@@ -616,7 +688,7 @@ for (const [path, search, expected] of legacy) {
       assert.equal(location(app.router), "/operations", "nothing from the old screen rewrites the new address");
       await act(async () => app.router.navigate(-1));
       await settle();
-      assert.equal(location(app.router), "/detection/models?tab=all", "back returns to the same tab");
+      assert.equal(location(app.router), "/detection/models?frame=row", "back returns with the same query");
       await app.cleanup();
     }
     // 3) 규칙 추천 › 실행 흐름 규칙 → 머신러닝 모델 → 뒤로
@@ -717,7 +789,7 @@ for (const [path, search, expected] of legacy) {
     }
     // 9) 사본이 사라지는 중에 화면 전체가 내려가면(로그아웃·계정 전환 등) 사본을 바로 지운다
     {
-      const app = await mount("/detection/models?tab=all", "admin", nodeMock);
+      const app = await mount("/detection/models?frame=row", "admin", nodeMock);
       copies.length = 0;
       await act(async () => app.router.navigate("/operations"));
       assert.equal(copies.length === 1 && copies[0].removed, false, "copy fading");

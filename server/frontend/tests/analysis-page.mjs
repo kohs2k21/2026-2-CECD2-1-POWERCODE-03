@@ -591,6 +591,56 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await app.cleanup();
 }
 
+// 4b-2) 모델 이름표(analysis-ui.md `mlModels`): 서버가 붙인 틀·표시 이름이 있으면 `행 단위 모델 · Isolation Forest`(목록 보조 줄·이상 원인·위험도 근거·
+//      세부 방법별 결과·관리자 링크), 이름표가 없는 키(lof)는 지금 표시 `머신러닝 모델(lof)` 그대로. 근거 구분 이름 `머신러닝 모델`은 바뀌지 않는다.
+{
+  requested.length = 0;
+  const labels = [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "lof", methodName: null, frame: null }];
+  const methods = [
+    { methodId: "hard:process-status", category: "hard", methodVersion: "process-status-hr-v1", status: "succeeded", anomalous: false, riskLevel: null, elapsedMs: 9.1, evidence: [] },
+    { methodId: "ml:iforest", category: "ml", modelVersionId: "7f3a9c21-0000-4000-8000-000000000001", status: "succeeded", anomalous: true, riskLevel: null, riskLevelReason: "level_undefined", elapsedMs: 21.7, score: 0.71,
+      scoreDetail: { raw: 0.71, threshold: "0.61", direction: "higher_is_anomaly", normalized: { kind: "threshold_ratio", value: 1.164 } }, evidence: [] },
+    { methodId: "ml:lof", category: "ml", modelVersionId: "0b12cd34-0000-4000-8000-000000000002", status: "not_ready", anomalous: null, cause: "timeout", elapsedMs: 3001, evidence: [] },
+  ];
+  const evidence = { schemaVersion: 4, anomalous: true, ruleSetRevision: 13, rules: [{ ruleKey: "process-status", result: "no_hit", observedStatus: "S" }],
+    models: [{ modelKey: "iforest", anomalous: true }], methodResults: methods,
+    categoryResults: { hard: { n: 1, k: 1, result: "normal" }, ml: { n: 2, k: 2, result: "anomalous" } },
+    composite: { status: "partial", anomalous: true, grade: "anomaly_sign", basisMethods: ["ml:iforest"],
+      risk: { policy: "risk-max-v1", levelTable: "method-defined-v2", status: "unrated", level: null, determinedBy: [], unratedMethods: ["ml:iforest"] } } };
+  const mlCause = { category: "ml", methodId: "ml:iforest", ruleKey: null, code: "IF_ANOMALY", observedStatus: null, fieldName: null, operator: null, threshold: null,
+    unit: null, observedValue: null, modelName: "Isolation Forest", score: 0.71, scoreThreshold: "0.61" };
+  const listed = item("d-7", { grade: "anomaly_sign", evidence, mlModels: labels, causes: [mlCause] });
+  const detail = { ...listed, configuration: { id: "config-1", createdAt: null, detectionMode: "parallel", ruleCount: 1, models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }, { modelKey: "lof", adapterName: null }] }, job: null };
+  routes = {
+    "GET /api/analysis/decisions": () => json(listBody([listed, item("d-8")])),
+    "GET /api/analysis/decisions/d-7": () => json(detail),
+    "GET /api/analysis/decisions/d-7/interims": () => json({ id: "d-7", jobId: null, items: [] }),
+    "GET /api/analysis/decisions/d-7/flow": () => json({ id: "d-7", jobId: null, transaction: null, processes: [], messages: [], truncated: false }),
+    "PUT /api/analysis/decisions/d-7/read": () => json({ id: "d-7", readAt: "2026-11-03T02:00:00Z" }),
+    "GET /api/analysis/decisions/d-7/feedback": () => json({ id: "d-7", items: [] }),
+  };
+  const list = await mount("/analysis?category=all", "admin");
+  await wait(() => list.shown().includes("TX-d-7"), "list rendered");
+  const rowText = (id) => text(list.renderer.root.find((node) => node.type === "a" && node.props["data-decision"] === id).children);
+  assert.ok(rowText("d-7").includes("행 단위 모델 · Isolation Forest 원점수 0.71 (판정선 0.61)"), "cause line uses the model label");
+  assert.ok(rowText("d-7").includes("Rule 완료 · ML 완료 · 행 단위 모델 · Isolation Forest"), "sub line uses the model label");
+  assert.ok(rowText("d-8").includes("Rule 완료 · ML 완료 · 모델 iforest"), "a row without labels keeps the key");
+  await list.cleanup();
+
+  const app = await mount("/analysis/d/d-7", "admin");
+  await wait(() => app.shown().includes("세부 방법별 결과"), "v4 tables rendered");
+  const shown = app.shown();
+  assert.ok(shown.includes("판정 결과이상 징후 · 근거 머신러닝 모델"), "the evidence group name stays");
+  assert.ok(shown.includes("위험도위험도 미정 · 단계 없는 근거 행 단위 모델 · Isolation Forest"), "risk basis uses the label");
+  assert.ok(shown.includes("당시 운영 머신러닝 모델행 단위 모델 · Isolation Forest, lof"), "configuration models: label, or the key when unlabeled");
+  const row = (id) => text(app.renderer.root.find((node) => node.type === "tr" && node.props["data-method"] === id).children);
+  assert.ok(row("ml:iforest").startsWith("머신러닝 모델행 단위 모델 · Isolation Forest완료"), "category column stays, method name is the label");
+  assert.ok(row("ml:lof").startsWith("머신러닝 모델머신러닝 모델(lof)"), "unlabeled key keeps the current name");
+  const adminLinks = app.renderer.root.find((node) => node.type === "div" && node.props["data-admin-links"] === "true").findAll((node) => node.type === "a");
+  assert.deepEqual(adminLinks.map((a) => text(a.children)), ["룰 변경 기록 보기", "당시 행 단위 모델 · Isolation Forest 7f3a9c21 보기", "당시 머신러닝 모델 0b12cd34 보기"]);
+  await app.cleanup();
+}
+
 // 4c) 관리자 로그 분류하기(사용자 11/13): 보류·완료 버튼 하나 [로그 분류하기] → 가운데 대화상자(기록 유형·사유, 취소 버튼 없음) → 안에서 보류·완료 =
 //     사유가 있으면 기록 저장 후 처리 상태 변경. 저장 실패면 상태를 바꾸지 않음, 상태 변경 실패는 대화상자 유지·오류 그대로, 다시 눌러도 기록은 한 번만 저장.
 //     처리 중에는 닫히지 않음. 저장된 기록은 판정 기록에 읽기 전용으로. 원래 상태로 복원은 바로.

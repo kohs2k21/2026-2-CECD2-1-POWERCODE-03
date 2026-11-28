@@ -94,7 +94,8 @@ try {
   assert.ok(isoTime(overview.observedAt));
   assert.equal(overview.maxAgeMs, 60000);
   assert.equal(overview.activeConfigurationVersion, fixture.configId);
-  assert.deepEqual(overview.activeConfiguration.models, [{ modelKey: 'iforest', adapterName: 'sklearn-iforest' }]);
+  // 추가 필드 methodName·frame: 카탈로그 표시 이름·틀(operations-ui.md)
+  assert.deepEqual(overview.activeConfiguration.models, [{ modelKey: 'iforest', adapterName: 'sklearn-iforest', methodName: 'Isolation Forest', frame: 'row' }]);
   assert.equal(overview.activeConfiguration.ruleCount, 2);
   assert.deepEqual(overview.activeConfiguration.ruleSeverityCounts, { warning: 1, critical: 1 });
   assert.equal(overview.activeConfiguration.detectionMode, 'parallel');
@@ -297,7 +298,7 @@ try {
   await pool.query(`INSERT INTO ops_active_model_set_revisions(revision,snapshot,changes,changed_by_actor_id)
     VALUES(1,'{"models":[{"configVersionId":"${fixture.configId}","modelKey":"iforest","activatedAtRevision":1}]}','[]','operations-fixture')`);
   assert.deepEqual((await request(base, '/api/operations/overview', 'GET', user)).body.operationalState,
-    { ruleSetRevision: 2, activeModelSetRevision: 1, models: [{ modelKey: 'iforest' }] }, 'latest revisions');
+    { ruleSetRevision: 2, activeModelSetRevision: 1, models: [{ modelKey: 'iforest', methodName: 'Isolation Forest', frame: 'row' }] }, 'latest revisions');
   const noActive = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
   assert.deepEqual(noActive.items, allSources.items, 'the trend does not depend on the active configuration');
   assert.equal('reason' in noActive, false);

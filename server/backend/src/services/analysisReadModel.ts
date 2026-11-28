@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
 import { buildInstanceGraph, GRAPH_ABSENT_SQL, GRAPH_RETRY_LIMIT, graphValueAbsent, pickTransactionRow, type GraphTransactionRow } from './processGraph.js';
-import { mlMethod, softRuleField } from '../ruleset/methodCatalog.js';
+import { mlMethod, modelLabel, softRuleField, type ModelLabel } from '../ruleset/methodCatalog.js';
 import { buildEvidenceSummary, evidenceSummaryNeeds, type EvidenceSummary, type EvidenceSummaryInput, type ObservedFields } from './evidenceSummary.js';
 import { POLISH_OUTPUT_SCHEMA_VERSION, POLISH_PROMPT_VERSION, polishEvidenceHash, polishInputFor, polishRequestableOf, polishStateOf, readPolished, type PolishItem, type PolishState, type Polished } from './evidencePolish.js';
 
@@ -355,6 +355,22 @@ export function decisionCauses(item: { signal: string; evidence: unknown; anomal
 }
 
 /**
+ * 판정이 쓴 머신러닝 모델의 이름표(analysis-ui.md `mlModels`, 추가 필드): 저장 evidence의 모델 키(v4 methodResults `ml:<key>`, v3 models[].modelKey)를
+ * 나온 순서대로 한 번씩 모아 카탈로그 표시 이름·틀을 붙인다. 판정을 다시 계산하지 않는다. evidence가 없으면 [].
+ */
+export function decisionModelLabels(evidence: unknown): ModelLabel[] {
+  if (!isRecord(evidence)) return [];
+  const keys = [
+    ...records(evidence.methodResults).flatMap((method) => {
+      const methodId = str(method.methodId);
+      return method.category === 'ml' && methodId?.startsWith('ml:') && methodId.length > 3 ? [methodId.slice(3)] : [];
+    }),
+    ...records(evidence.models).flatMap((model) => (str(model.modelKey) ? [model.modelKey as string] : [])),
+  ];
+  return [...new Set(keys)].map(modelLabel);
+}
+
+/**
  * GET /api/analysis/decisions: 분류별 건수(전체 기준) + 조건에 맞는 한 페이지.
  * admin=false면 확인 결과별 완료 분류 건수는 null이고 그 분류 요청은 거절한다(라우터가 먼저 403으로 막는다).
  */
@@ -403,7 +419,7 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
       // jsonb는 키 순서를 보존하지 않으므로 분류 순서(사이드바 순서)대로 다시 담는다.
       counts: Object.fromEntries(ANALYSIS_CATEGORIES.map((key) => [key, row.counts[key] ?? null])), total: row.total, page: filter.page, pageSize: filter.pageSize,
       latestDecidedAt: row.latestDecidedAt ?? null, latestEventId: row.latestEventId,
-      items: row.items.map((item: { signal: string; evidence: unknown; anomalyScore: unknown }) => ({ ...item, causes: decisionCauses(item) })),
+      items: row.items.map((item: { signal: string; evidence: unknown; anomalyScore: unknown }) => ({ ...item, causes: decisionCauses(item), mlModels: decisionModelLabels(item.evidence) })),
     };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -499,7 +515,7 @@ export async function readDecisionDetail(db: Queryable, id: string, polishReady 
   const { polishState, polished, input } = await readDecisionPolish(db, item, evidenceSummary);
   // polishRequestable: 화면이 지금 다듬기를 자동 요청해도 되는지(다듬을 수 있는 판정 + 결과·진행 중 작업 없음 + 생성 서비스가 다듬기 모델을 알림).
   // 생성 서비스 상태는 마지막 확인 값만 쓴다(polishReady, 이 읽기에서 묻지 않음). 모르면 false(요청하지 않음).
-  return { ...item, configuration: context.configuration ?? null, job: context.job ?? null,
+  return { ...item, mlModels: decisionModelLabels(item.evidence), configuration: context.configuration ?? null, job: context.job ?? null,
     workflow: { state: item.workflowState, changedAt: item.workflowChangedAt ?? null }, evidenceSummary, polishState, polished,
     polishRequestable: polishRequestableOf(input, polishState, polishReady) };
 }

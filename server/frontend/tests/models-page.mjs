@@ -1904,7 +1904,7 @@ for (const [hasMore, expected] of [[true, true], [false, false]]) {
   assert.equal(app.input("period-from"), undefined);
   const toRow = app.link("행 단위 모델로 바꾸기");
   // 막힌 틀은 갈 수 있는 단계가 없어 step이 1로 정규화되고, 틀을 바꾸는 링크는 그 주소의 다른 값을 그대로 둔다.
-  assert.equal(toRow.props.href, "/detection/models?frame=row&step=1", "switching keeps the other address values");
+  assert.equal(toRow.props.href, "/detection/models?frame=row&step=1#models-train", "switching keeps the other address values and the area hash");
   await app.go("행 단위 모델로 바꾸기");
   await wait(() => app.input("period-from"), "row frame steps");
   assert.ok(!app.shown().includes("지금 학습할 수 없습니다"));

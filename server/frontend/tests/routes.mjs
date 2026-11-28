@@ -359,7 +359,39 @@ for (const [path, search, expected] of legacy) {
       const back = calls.splice(0);
       assert.deepEqual(back.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "[새 학습] after the TOC goes to the training area");
       assert.ok(!back.some(([kind]) => kind === "top"), "not to the top");
+      // 새 학습 영역 안의 단계 이동(현재 단계 링크 포함)은 영역 해시를 유지한다: `1. 기간`을 눌러도 맨 위로 가지 않고 영역에 머문다
+      const stepLink = (label) => models.links().find((node) => node.props["aria-current"] === "step" && text(node.children).includes(label));
+      assert.equal(stepLink("기간").props.href, "/detection/models?frame=row&step=1#models-train", "the current step link keeps the area hash");
+      await click(stepLink("기간"));
+      await settleScroll();
+      const stepCalls = calls.splice(0);
+      assert.ok(!stepCalls.some(([kind]) => kind === "top"), "the current step link never jumps to the top");
+      assert.deepEqual(stepCalls.filter(([kind]) => kind === "into"), [["into", "models-train", "start"]], "stays on the training area");
+      assert.equal(models.router.state.location.hash, "#models-train");
+      // 틀 바꾸기 링크도 영역 해시를 유지
+      const switchLink = models.links().find((node) => text(node.children).trim() === "시계열 모델로 바꾸기");
+      assert.equal(switchLink.props.href, "/detection/models?frame=trend&step=1#models-train");
+      await click(switchLink);
+      await settleScroll();
+      assert.ok(!calls.splice(0).some(([kind]) => kind === "top"), "switching the frame stays in the area");
       await models.cleanup();
+      // 새 비교 평가: 목차 `새 비교 평가` → 현재 단계 링크 → 맨 위로 가지 않음(같은 구조)
+      sections.set("evaluations-new", fakeSection("evaluations-new"));
+      const evaluations = await mount("/detection/evaluations");
+      for (let i = 0; i < 10; i++) await tick();
+      const newCompareToc = evaluations.links().find((node) => node.props.href?.endsWith("#evaluations-new"));
+      calls.length = 0;
+      await click(newCompareToc);
+      await settleScroll();
+      assert.deepEqual(calls.splice(0).filter(([kind]) => kind === "into"), [["into", "evaluations-new", "start"]]);
+      const compareStep = evaluations.links().find((node) => node.props["aria-current"] === "step");
+      assert.equal(compareStep.props.href, "/detection/evaluations?step=1#evaluations-new", "comparison step links keep the area hash");
+      await click(compareStep);
+      await settleScroll();
+      const compareCalls = calls.splice(0);
+      assert.ok(!compareCalls.some(([kind]) => kind === "top"), "the comparison step link never jumps to the top");
+      assert.equal(evaluations.router.state.location.hash, "#evaluations-new");
+      await evaluations.cleanup();
       extraFetch = null;
     }
   } finally {

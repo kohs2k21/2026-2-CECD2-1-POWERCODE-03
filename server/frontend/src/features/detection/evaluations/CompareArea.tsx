@@ -30,7 +30,8 @@ export const CompareArea = () => {
   const sets = useEvaluationSets();
   const versions = useCompareVersions();
   const ruleRevision = useRuleRevision();
-  const { value: step, hrefFor } = useUrlStep(workStepCount.compare);
+  // 단계 이동은 새 비교 평가 영역 해시를 유지한다(영역에 머묾 — 목차 `새 비교 평가`와 같은 해시).
+  const { value: step, hrefFor } = useUrlStep(workStepCount.compare, "step", { hash: detectionSections.evaluationsNew.id });
   const draft = useDraftStore((state) => state.drafts[paths.detectionEvaluations]?.value as CompareDraft | undefined) ?? EMPTY_DRAFT;
   const [requesting, setRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);

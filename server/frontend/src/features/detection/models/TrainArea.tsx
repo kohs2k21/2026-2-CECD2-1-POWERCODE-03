@@ -70,8 +70,9 @@ export const TrainArea = () => {
   const { user } = useAuthSession();
   const capabilities = useCapabilities();
   const sources = useSourcesQuery();
-  const { value: step, hrefFor } = useUrlStep(workStepCount.train);
-  const frameOption = useUrlOption("frame", urlOptions.modelFrame);
+  // 단계·틀 이동은 새 학습 영역 해시를 유지한다(영역에 머묾 — [새 학습]·목차 `새 학습`과 같은 해시).
+  const { value: step, hrefFor } = useUrlStep(workStepCount.train, "step", { hash: detectionSections.modelsTrain.id });
+  const frameOption = useUrlOption("frame", urlOptions.modelFrame, { hash: detectionSections.modelsTrain.id });
   const frame = frameOption.value;
   const other = frame === "row" ? "trend" : "row";
   const draft = useDraftStore((state) => state.drafts[paths.detectionModels]?.value as TrainDraft | undefined) ?? EMPTY_DRAFT;

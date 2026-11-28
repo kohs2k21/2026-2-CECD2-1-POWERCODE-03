@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { DecisionItem } from "../data/analysisApi";
 import { readEvidence } from "../data/evidence";
+import { labelOfModelKey } from "@/features/detection/models/modelFrames";
 import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import {
   DASH,
@@ -23,9 +24,12 @@ const pathsText = (item: DecisionItem) => {
   const label = (status: string | null) => (status ? (runLabels[status] ?? status) : DASH);
   return `Rule ${label(item.ruleStatus)} · ML ${label(item.mlStatus)}`;
 };
+/** 모델: 이름표(`mlModels`)가 있으면 `행 단위 모델 · Isolation Forest`, 없으면(옛 응답·카탈로그에 없는 키) 지금처럼 `모델 <키>`. */
 const modelsText = (item: DecisionItem) => {
   const keys = readEvidence(item.evidence).models.flatMap((model) => (model.modelKey ? [model.modelKey] : []));
-  return keys.length ? `모델 ${keys.join(", ")}` : null;
+  if (!keys.length) return null;
+  const labels = keys.map((key) => labelOfModelKey(item.mlModels, key));
+  return labels.every(Boolean) ? labels.join(", ") : `모델 ${keys.join(", ")}`;
 };
 const inputText = (item: DecisionItem) => {
   const evidence = readEvidence(item.evidence);

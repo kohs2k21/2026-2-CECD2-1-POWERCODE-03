@@ -29,7 +29,7 @@
 | `/detection/rules/protocols/:interfaceId` | 프로토콜 설정 인터페이스 상세 | admin |
 | `/detection/rules/response-codes` | 룰 설정 › 응답 코드 목록(사전 메시지 + 거래 실패 규칙 코드별 위험도, [response-codes-ui.md](response-codes-ui.md)) | admin |
 | `/detection/rules/response-codes/:code` | 응답 코드 상세(코드는 퍼센트 인코딩) | admin |
-| `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
+| `/detection/models` | 탐지 설정 › 머신러닝 모델(틀 구역 2개 — 행 단위 모델·시계열 모델 — + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
 | `/detection/models/:versionId` | 모델 버전 상세([models-ui.md](models-ui.md)) | admin |
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
 | `/detection/evaluations/:evaluationId` | 평가 상세 | admin |
@@ -47,7 +47,7 @@
 | 운영 현황 | `tab` | `overview` 개요 / `collect` 수집 |
 | 알림 | `view` | `unread` 읽지 않음 / `all` 전체(바꾸면 replace — 뒤로 가기에 쌓지 않음) |
 | 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)). `integrations`는 메일 알림 카드에 자체 [저장](관리자, [email-alerts.md](email-alerts.md) 11절), Slack·Webhook 카드는 카드 안 미지원 표시 — 상단 `저장 미지원` 없음. `profile`만 `저장 미지원`(첫 카드 제목 줄 오른쪽, ui.md 화면 제목). 항목 사이 이동은 본문만 화면 전환(ui.md "움직임" 화면 전환) |
-| 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
+| 머신러닝 모델 | `frame` | 새 학습의 틀 `row` 행 단위 모델 / `trend` 시계열 모델(기본 `row`, 잘못된 값은 `row`로 replace). 틀 구역의 [새 학습]이 `frame`·`step=1`을 정한다 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
 | 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |
 | 작업 목록 | `status` | `all` 전체 / `running` 진행 중(대기·실행 중) / `done` 완료 / `failed` 실패 |

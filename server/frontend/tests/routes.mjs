@@ -270,15 +270,15 @@ for (const [path, search, expected] of legacy) {
   assert.ok(column.props.className.split(" ").includes("flex-col") && !column.props.className.split(" ").includes("grid"), "sticky bar parent is a flex column");
   // 하위 화면에서도 그 메뉴 목차를 보이고, 누르면 메뉴 첫 화면의 영역으로 이동(push — 뒤로 가기로 하위 화면에 돌아온다)
   const toc = app.renderer.root.findByProps({ "data-slot": "side-nav-sub" }).findAllByType("a");
-  assert.deepEqual(toc.map((node) => [text(node.children), node.props.href]), [["버전", "/detection/models#models-versions"], ["새 학습", "/detection/models#models-train"]]);
+  assert.deepEqual(toc.map((node) => [text(node.children), node.props.href]), [["행 단위 모델", "/detection/models#models-row"], ["시계열 모델", "/detection/models#models-trend"], ["새 학습", "/detection/models#models-train"]]);
   assert.ok(toc.every((node) => node.props["aria-current"] === undefined), "no current section on a sub page");
   await app.cleanup();
 }
 {
-  // 첫 화면 목차는 지금 쿼리(탭·단계)를 지킨다
-  const app = await mount("/detection/models?tab=all");
+  // 첫 화면 목차는 지금 쿼리(틀·단계)를 지킨다
+  const app = await mount("/detection/models?frame=trend");
   const toc = app.renderer.root.findByProps({ "data-slot": "side-nav-sub" }).findAllByType("a");
-  assert.deepEqual(toc.map((node) => node.props.href), ["/detection/models?tab=all#models-versions", "/detection/models?tab=all#models-train"]);
+  assert.deepEqual(toc.map((node) => node.props.href), ["/detection/models?frame=trend#models-row", "/detection/models?frame=trend#models-trend", "/detection/models?frame=trend#models-train"]);
   await app.cleanup();
 }
 // 화면 이동 스크롤(useDetectionScroll): 경로가 바뀌면 맨 위, 해시면 그 영역, 쿼리만 바뀌면 그대로, 브라우저 뒤로(POP)는 건드리지 않음
@@ -423,24 +423,24 @@ for (const [path, search, expected] of legacy) {
   const { workStepCount, urlOptions } = routes;
   let probe;
   const Probe = () => {
-    probe = { step: useUrlStep(workStepCount.train), tab: useUrlOption("tab", urlOptions.modelsTab) };
+    probe = { step: useUrlStep(workStepCount.train), frame: useUrlOption("frame", urlOptions.modelFrame) };
     return null;
   };
   const router = createMemoryRouter([{ path: "/detection/models", element: React.createElement(Probe) }], {
-    initialEntries: ["/detection/models?tab=all&step=9"],
+    initialEntries: ["/detection/models?frame=trend&step=9"],
   });
   let renderer;
   await act(async () => {
     renderer = create(React.createElement(RouterProvider, { router }));
   });
   await tick();
-  assert.equal(location(router), "/detection/models?tab=all&step=3");
+  assert.equal(location(router), "/detection/models?frame=trend&step=3");
   assert.equal(router.state.historyAction, "REPLACE");
-  await act(async () => router.navigate("/detection/models?tab=bogus"));
+  await act(async () => router.navigate("/detection/models?frame=bogus"));
   await tick();
-  assert.equal(location(router), "/detection/models?tab=active", "invalid list tab is normalized");
+  assert.equal(location(router), "/detection/models?frame=row", "invalid frame is normalized to the first frame");
   assert.equal(probe.step.value, 1, "missing step means step 1");
-  assert.equal(probe.step.hrefFor(2), "/detection/models?tab=active&step=2", "other query values are kept");
+  assert.equal(probe.step.hrefFor(2), "/detection/models?frame=row&step=2", "other query values are kept");
   await act(async () => router.navigate(probe.step.hrefFor(2)));
   assert.equal(router.state.historyAction, "PUSH");
   assert.equal(probe.step.value, 2);
@@ -598,7 +598,7 @@ for (const [path, search, expected] of legacy) {
     // 2) 머신러닝 모델 › 전체 버전 → 상단 운영 현황 → 뒤로. 사본이 지워지고 새 화면 투명이 풀리며, 기다리던 처리는 사본이 지워진 뒤 실행된다.
     {
       const { afterPageSwap } = await import("../src/components/layout/PageFade.tsx");
-      const app = await mount("/detection/models?tab=all", "admin", nodeMock);
+      const app = await mount("/detection/models?frame=row", "admin", nodeMock);
       copies.length = 0;
       seq.length = 0;
       await act(async () => app.router.navigate("/operations"));
@@ -616,7 +616,7 @@ for (const [path, search, expected] of legacy) {
       assert.equal(location(app.router), "/operations", "nothing from the old screen rewrites the new address");
       await act(async () => app.router.navigate(-1));
       await settle();
-      assert.equal(location(app.router), "/detection/models?tab=all", "back returns to the same tab");
+      assert.equal(location(app.router), "/detection/models?frame=row", "back returns with the same query");
       await app.cleanup();
     }
     // 3) 규칙 추천 › 실행 흐름 규칙 → 머신러닝 모델 → 뒤로
@@ -717,7 +717,7 @@ for (const [path, search, expected] of legacy) {
     }
     // 9) 사본이 사라지는 중에 화면 전체가 내려가면(로그아웃·계정 전환 등) 사본을 바로 지운다
     {
-      const app = await mount("/detection/models?tab=all", "admin", nodeMock);
+      const app = await mount("/detection/models?frame=row", "admin", nodeMock);
       copies.length = 0;
       await act(async () => app.router.navigate("/operations"));
       assert.equal(copies.length === 1 && copies[0].removed, false, "copy fading");

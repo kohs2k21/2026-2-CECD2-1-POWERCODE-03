@@ -76,7 +76,8 @@ export const urlOptions = {
   /** 알림 페이지 보기(notifications.md 패널 보기와 같은 값). */
   notificationsView: ["unread", "all"],
   settingsSection: ["notifications", "integrations", "display", "profile"],
-  modelsTab: ["active", "all"],
+  /** 머신러닝 모델 새 학습의 틀(models-ui.md 틀 절). 첫 값이 기본. */
+  modelFrame: ["row", "trend"],
   evaluationsTab: ["current", "all"],
   jobsTab: ["all", "running", "done", "failed"],
   jobsKind: ["all", "train", "evaluate", "evaluation_set", "compare", "recommend_thresholds", "recommend_relations"],

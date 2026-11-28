@@ -153,6 +153,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const noneText = rowOf(app, C_LATEST).findAll((node) => node.type === "span" && text(node.children) === "eif · 해당 없음")[0];
   assert.equal(noneText.props["data-slot"], undefined, "no recommendation is plain text, not a badge");
   assert.ok(shown.includes("3개 (기준 운영 4d2f7c10 · V4)"));
+  // 자리(틀) 열: 기준 운영·추천의 모델 키 → 카탈로그 틀(iforest = 행 단위, eif = 시계열)
+  assert.ok(app.renderer.root.findAll((node) => node.type === "th").some((node) => text(node.children) === "자리"));
+  await wait(() => rowText(app, C_LATEST).includes("행 단위 모델, 시계열 모델"), "slot cell from the catalog");
   assert.equal(app.link("현재 운영 모델 기준").props["aria-current"], "page");
   // 비교 행 → 평가 상세: 뒤로가기가 비교 평가 영역으로 돌아온다(탭 쿼리 유지)
   assert.equal(linkProps(app, short(C_LATEST)).state.returnTo, "/detection/evaluations#evaluations-list");
@@ -245,6 +248,11 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(app.shown().includes("평가 세트: ESB 합성 E1 · 주입 PROCESS 단위"));
   assert.equal(app.button("다음 · 요청").props.disabled, true);
   assert.equal(box(app, "c5e07b42 · EIF 실험 2 선택").props.disabled, true, "not executable");
+  // 버전은 틀로 묶어 보인다(비교 규칙은 그대로): eif는 시계열 모델 묶음, iforest·K-Means는 행 단위 모델 묶음
+  const group = (frame) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-frame-group"] === frame)[0];
+  assert.ok(text(group("row").children).startsWith("행 단위 모델") && text(group("row").children).includes("7be19a34 · 실험 7"));
+  assert.ok(text(group("trend").children).startsWith("시계열 모델") && text(group("trend").children).includes("c5e07b42 · EIF 실험 2"));
+  assert.ok(!text(group("row").children).includes("EIF 실험 2"));
   assert.equal(box(app, "4d2f7c10 · V4 현재 운영").props.checked, false);
   assert.ok(app.shown().includes("선택 0 / 8"));
 
@@ -416,6 +424,7 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   await wait(() => app.shown().includes("비교 평가 b84e6d15"), "detail");
   await wait(() => app.shown().includes("ESB 합성 E1"), "set joined");
   await wait(() => app.shown().includes("4d2f7c10 · V4 · 현재 운영"), "baseline");
+  await wait(() => app.shown().includes("자리행 단위 모델, 시계열 모델"), "slot line in the head");
   const shown = app.shown();
   assert.ok(shown.includes("2,000행 · 200행") && shown.includes("운영 룰 버전 13 고정 · 모든 모델에 같은 룰"));
   assert.ok(shown.includes("모델 교체 추천 · 해당 없음 · EIF 계열은 현재 운영 중인 버전이 없어 추천하지 않습니다"));

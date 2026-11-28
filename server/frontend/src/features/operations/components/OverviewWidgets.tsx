@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { resultCodeLabel } from "@/features/analysis/labels";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import type { ProcessDecision } from "@/services/api/pipeline.api";
-import { operationsFreshness, type ActiveConfiguration, type OperationsOverview } from "../data/operations";
+import { frameLabels, frameText, modelFrames } from "@/features/detection/models/modelFrames";
+import { operationsFreshness, type ActiveConfiguration, type OperationsModel, type OperationsOverview } from "../data/operations";
 import {
   useCollectionQuery,
   useOperationsQuery,
@@ -68,23 +69,59 @@ const ObservationNotice = ({ data }: { data: OperationsOverview }) => {
   );
 };
 
-/** 현재 운영 구성 한 줄(헤더 "현재 운영: …"·위젯 공용). */
+/** 현재 운영 구성 한 줄(헤더 "현재 운영: …"·위젯 공용): 틀별 줄을 만들 수 없을 때의 키 표시. */
 export const modelsText = (config: ActiveConfiguration) =>
   config.models.length ? config.models.map((m) => (m.adapterName ? `${m.modelKey}(${m.adapterName})` : m.modelKey)).join(", ") : "없음";
+/**
+ * 틀별 한 줄(operations-ui.md): 서버가 붙인 표시 이름·틀(`methodName`·`frame`)을 모든 운영 모델이 가질 때만 [틀 이름, 표시 이름 목록|없음]을 틀 순서대로.
+ * 하나라도 모르면(옛 서버·카탈로그에 없는 키) null — 화면은 지금의 `머신러닝 모델 <키>` 표시를 유지한다(지어내지 않음).
+ */
+export const frameModelLines = (models: OperationsModel[]): [string, string][] | null =>
+  models.some((m) => !m.frame || !m.methodName)
+    ? null
+    : modelFrames.map((frame) => {
+        const names = models.filter((m) => m.frame === frame).map((m) => m.methodName as string);
+        return [frameLabels[frame], names.length ? names.join(", ") : frameText.none];
+      });
+const ML_TERM = "머신러닝 모델";
+/** 헤더 한 줄의 모델 부분: `행 단위 모델 Isolation Forest · 시계열 모델 없음` 또는 지금 표시 `머신러닝 모델 <키>`. */
+const modelsLine = (models: OperationsModel[], keys: string) => {
+  const lines = frameModelLines(models);
+  return lines ? lines.map(([frame, names]) => `${frame} ${names}`).join(" · ") : `${ML_TERM} ${keys}`;
+};
 /** 구성 없이(v04) 운영: 룰 세트 버전·활성 모델. 버전을 읽지 못하면 null(구성 없음으로 표시). */
 const operationalStateParts = (overview: OperationsOverview) => {
   const state = overview.operationalState;
   if (!state || state.ruleSetRevision === undefined) return null;
-  return { rules: `버전 ${state.ruleSetRevision}`, models: state.models.length ? state.models.map((m) => m.modelKey).join(", ") : "없음" };
+  return { rules: `버전 ${state.ruleSetRevision}`, models: state.models.length ? state.models.map((m) => m.modelKey).join(", ") : "없음", list: state.models };
 };
 export const activeConfigurationText = (overview: OperationsOverview | undefined) => {
   if (!overview || overview.activeConfiguration === undefined) return `${DASH} 확인 불가`;
   if (overview.activeConfiguration === null) {
     const state = operationalStateParts(overview);
-    return state ? `룰 ${state.rules} · 머신러닝 모델 ${state.models}` : "운영 구성 없음";
+    return state ? `룰 ${state.rules} · ${modelsLine(state.list, state.models)}` : "운영 구성 없음";
   }
   const config = overview.activeConfiguration;
-  return `룰 ${config.ruleCount === undefined ? DASH : `${config.ruleCount}개`} · 머신러닝 모델 ${modelsText(config)}`;
+  return `룰 ${config.ruleCount === undefined ? DASH : `${config.ruleCount}개`} · ${modelsLine(config.models, modelsText(config))}`;
+};
+/** 위젯 모델 줄: 틀별 줄(`행 단위 모델 · Isolation Forest`) 또는 지금 표시(`머신러닝 모델 · <키>`). */
+const ModelLines = ({ models, keys }: { models: OperationsModel[]; keys: string }) => {
+  const lines = frameModelLines(models);
+  if (!lines)
+    return (
+      <p>
+        <strong>{ML_TERM}</strong> · {keys}
+      </p>
+    );
+  return (
+    <>
+      {lines.map(([frame, names]) => (
+        <p key={frame} data-frame-line={frame}>
+          <strong>{frame}</strong> · {names}
+        </p>
+      ))}
+    </>
+  );
 };
 
 const FlowWidget = () => {
@@ -204,9 +241,7 @@ const ActiveWidget = () => {
                 <p>
                   <strong>룰</strong> · {state.rules}
                 </p>
-                <p>
-                  <strong>머신러닝 모델</strong> · {state.models}
-                </p>
+                <ModelLines models={state.list} keys={state.models} />
               </>
             ) : config === null ? (
               <p>운영 구성 없음</p>
@@ -215,9 +250,7 @@ const ActiveWidget = () => {
                 <p>
                   <strong>룰</strong> · {config.ruleCount === undefined ? DASH : `${config.ruleCount}개`}
                 </p>
-                <p>
-                  <strong>머신러닝 모델</strong> · {modelsText(config)}
-                </p>
+                <ModelLines models={config.models} keys={modelsText(config)} />
               </>
             )}
             {user?.userType === "admin" && (

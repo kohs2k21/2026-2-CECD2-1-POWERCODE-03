@@ -53,7 +53,10 @@ const relation = { ...base, id: uuid("a"), kind: "recommend_relations", status: 
   inputSpec: { kind: "recommend_relations", snapshotId: SNAPSHOT } };
 
 // 순수 형식: 대상 한 줄, 상태 배지.
-assert.equal(jobTarget(train, { methods: catalog.methods }), "Extended Isolation Forest · 10/01 ~ 11/01");
+// 모델 이름 = 틀 이름 · 카탈로그 표시 이름(틀은 inputRequirements.unit — eif는 aggregated_window → 시계열 모델).
+assert.equal(jobTarget(train, { methods: catalog.methods }), "시계열 모델 · Extended Isolation Forest · 10/01 ~ 11/01");
+assert.equal(jobTarget({ kind: "train", inputSpec: { modelKey: "iforest" } }, { methods: catalog.methods }), "행 단위 모델 · Isolation Forest", "row frame label");
+assert.equal(jobTarget({ kind: "train", inputSpec: { modelKey: "unknown_key" } }, { methods: catalog.methods }), "unknown_key", "key not in catalog stays as the key");
 assert.equal(jobTarget({ kind: "train", inputSpec: {} }, {}), "iforest", "omitted model key is the default IF");
 assert.equal(jobTarget(compare, { setName: () => "검증 세트 10월" }), "검증 세트 10월 · 모델 2개");
 assert.equal(jobTarget({ kind: "recommend_thresholds", inputSpec: { ruleSetRevision: 13, data: { from: "2026-10-01T00:00:00Z", until: "2026-11-01T00:00:00Z" } } }), "룰 버전 13 · 10/01 ~ 11/01");
@@ -134,7 +137,7 @@ const jobCalls = () => requested.filter((call) => call.path === "/api/jobs");
   const app = await mount("/detection/operations/jobs");
   await wait(() => app.row(compare.id).includes("검증 세트 10월"), "list rows with names");
   assert.deepEqual(jobCalls()[0].params, { kind: "train,evaluate,evaluation_set,compare,recommend_thresholds,recommend_relations", limit: "20" });
-  assert.ok(app.row(train.id).startsWith("11111111학습Extended Isolation Forest · 10/01 ~ 11/01"), app.row(train.id));
+  assert.ok(app.row(train.id).startsWith("11111111학습시계열 모델 · Extended Isolation Forest · 10/01 ~ 11/01"), app.row(train.id));
   assert.ok(app.row(train.id).endsWith("완료버전 66666666 · V5"), app.row(train.id));
   assert.equal(app.link("버전 66666666").props.href, `/detection/models/${VERSION}`);
   assert.ok(app.row(failed.id).endsWith("실패insufficient_complete_training_rows"), "failure code shown raw");

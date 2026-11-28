@@ -20,6 +20,7 @@ import { excludedText, policyText, rateText, ruleConditionText } from "@/feature
 import { useCompareVersions, useEvaluationSet } from "@/features/detection/evaluations/useEvaluations";
 import { methodName, parameterSummary, periodText, thresholdSummary, versionLabel } from "@/features/detection/models/VersionList";
 import type { CatalogMethod, ModelVersion } from "@/features/detection/models/modelsApi";
+import { frameLabels, frameOfModelKey, frameText } from "@/features/detection/models/modelFrames";
 import { modelKeyOf } from "@/features/detection/models/trainDraft";
 import { useCapabilities, useVersions } from "@/features/detection/models/useModels";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
@@ -198,6 +199,11 @@ export const ReplacePage = () => {
     }
   };
 
+  // 자리(틀) 표시만 더한다. 운영 변화 규칙은 그대로(같은 알고리즘이면 교체, 아니면 추가 운영).
+  const frameLabelOf = (modelKey: string | null) => {
+    const frame = frameOfModelKey(methods, modelKey);
+    return frame ? frameLabels[frame] : methods ? frameText.unknownFrame : DASH;
+  };
   const recall = (id: string) => {
     const detail = comparisons.data?.find((item) => measuredItem(item, id));
     const ml = detail && measuredItem(detail, id)?.categoryResults?.ml;
@@ -229,7 +235,7 @@ export const ReplacePage = () => {
             <RadioGroup value={draft.target ?? ""} onValueChange={(value) => setDraft({ target: value, accepted: draft.accepted })} aria-label="교체할 모델 버전">
               <div className="max-h-96 overflow-auto" tabIndex={0}>
                 <Table>
-                  <TableHeader><TableRow>{["선택", "버전", "모델", "운영 변화", "최근 평가", "재현율(완료 기준)"].map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
+                  <TableHeader><TableRow>{["선택", "버전", frameText.slot, "모델", "운영 변화", "최근 평가", "재현율(완료 기준)"].map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
                   <TableBody>
                     {items.map((version) => {
                       const ok = eligible(version);
@@ -239,6 +245,7 @@ export const ReplacePage = () => {
                           title={ok ? undefined : (version.applicationEligibility?.reason ?? (version.active ? undefined : version.executable ? undefined : "not_executable"))}>
                           <TableCell><RadioGroupItem value={version.id} disabled={!ok} aria-label={`${versionLabel(version)} 선택`} /></TableCell>
                           <TableCell>{versionLabel(version)}</TableCell>
+                          <TableCell data-frame={frameOfModelKey(methods, version.modelKey) ?? "unknown"}>{frameLabelOf(version.modelKey)}</TableCell>
                           <TableCell>{methodName(methods, version.modelKey)}</TableCell>
                           <TableCell>{version.active ? <Badge variant="success">운영 중</Badge> : slot ? `${label(slot, items, active)} → ${versionLabel(version)}` : "추가 운영"}</TableCell>
                           <TableCell>{version.latestEvaluation ? <Badge variant="success">평가 완료 · {stampText(version.latestEvaluation.completedAt)}</Badge> : <Badge>평가 전</Badge>}</TableCell>

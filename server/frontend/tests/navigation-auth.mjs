@@ -185,8 +185,8 @@ assert.equal(
   "legacy detection address resolves to the new route before return",
 );
 assert.equal(
-  loginReturnPath("/detection/models?tab=all&step=2", "admin"),
-  "/detection/models?tab=all&step=2",
+  loginReturnPath("/detection/models?frame=row&step=2", "admin"),
+  "/detection/models?frame=row&step=2",
 );
 assert.equal(loginReturnPath("/detection/models", "user"), "/operations");
 assert.equal(safeReturnPath("/notifications?filter=tasks"), "/notifications?filter=tasks", "the alerts page is an app address again");

@@ -11,6 +11,7 @@ import type { CatalogMethod } from "@/features/detection/models/modelsApi";
 import { HARD_TERM, SOFT_TERM, errorCode, softCondition } from "@/features/detection/rules/ruleDraft";
 import type { RuleSetState, SoftRuleField } from "@/features/detection/rules/ruleSetApi";
 import { DASH, msText, numberText, percentText, stampText } from "@/features/operations/format";
+import { frameLabels, frameOfModelKey, frameText, frameTrainable, methodsOfFrame, modelFrames, notTrainableReason, type ModelFrame } from "@/features/detection/models/modelFrames";
 import { CAUSE_LABELS, hoursText, methodBadge, undecided } from "./methodStatus";
 import type { ActiveModel, MethodPeriod, MethodStatus, MethodStatusReport, OperationalState } from "./operationsApi";
 import { useMethodStatus } from "./useOperations";
@@ -69,6 +70,23 @@ const ruleRows = (rules: RuleSetState, fields: SoftRuleField[]): RuleRow[] => [
   })),
 ];
 
+/**
+ * 운영 모델 표 설명: 틀 2자리로 묶어 보이지만 교체·추가 운영 규칙은 그대로다(같은 알고리즘이면 교체, 다른 알고리즘은 추가 운영 — 같은 틀 안 다른 알고리즘 교체는 아직 없음).
+ */
+const SLOT_CAPTION = "틀마다 자리로 묶어 보임 · 같은 알고리즘이면 교체, 다른 알고리즘은 추가 운영(틀 안 교체는 아직 없음)";
+/** 빈 자리 한 줄: `운영 중인 <틀>이 없습니다` + 학습할 수 있는 알고리즘이 없으면 카탈로그 사유 코드 그대로(카탈로그를 읽은 뒤에만 자리를 나눈다). */
+const EmptySlotRow = ({ frame, methods }: { frame: ModelFrame; methods: CatalogMethod[] }) => (
+  <TableRow data-frame={frame} data-empty-slot={frame}>
+    <TableHead scope="row" className="h-auto font-normal">
+      <span className="grid gap-0.5"><strong className="font-semibold">{frameLabels[frame]}</strong><span className="text-muted-foreground">{frameText.none}</span></span>
+    </TableHead>
+    <TableCell colSpan={STAT_HEAD.length + 2} className="whitespace-normal text-muted-foreground">
+      {frameText.emptySlot(frame)}
+      {!frameTrainable(methods) && ` · ${frameText.noTrainable}(${methods.length ? methods.map((method) => `${method.displayName} ${notTrainableReason(method)}`).join(", ") : frameText.noAlgorithm})`}
+    </TableCell>
+  </TableRow>
+);
+
 const NameCell = ({ name, note }: { name: ReactNode; note: string }) => (
   <TableCell className="whitespace-normal"><span className="grid"><span>{name}</span><span className="text-xs text-muted-foreground">{note}</span></span></TableCell>
 );
@@ -91,6 +109,12 @@ export const OperationsOverview = ({ state, rules, fields, methods, onRetire }: 
     report?.methods.find((item) => item.methodId === methodId && (item.modelVersionId ?? null) === modelVersionId);
   const rows = ruleRows(rules, fields);
   const models = state.activeModelSet.models;
+  // 틀 2자리(행 단위 → 시계열) + 틀을 모르는 운영 모델(카탈로그에 없는 키)은 맨 아래 `틀 미확인`.
+  const frameOf = (model: ActiveModel) => frameOfModelKey(methods, model.modelKey);
+  // 카탈로그를 아직 못 읽었으면 자리를 나누지 않는다(빈 자리를 사실처럼 보이지 않게).
+  const slots: { frame: ModelFrame | null; models: ActiveModel[] }[] = methods
+    ? [...modelFrames.map((frame) => ({ frame, models: models.filter((model) => frameOf(model) === frame) })), { frame: null, models: models.filter((model) => !frameOf(model)) }]
+    : [{ frame: null, models }];
   return (
     <SectionCard
       id={detectionSections.operationsStatus.id}
@@ -138,32 +162,34 @@ export const OperationsOverview = ({ state, rules, fields, methods, onRetire }: 
             </Table>
           </div>
           <h3 className="text-sm font-semibold">현재 운영 {ML_TERM}</h3>
-          {models.length ? (
-            <div className="overflow-x-auto">
-              <Table aria-label="모델 작동 상태">
-                <TableCaption>모델 종류마다 운영 버전 1개 · 여러 모델 동시 운영 · {label}</TableCaption>
-                <TableHeader><TableRow>{["모델", "버전", ...STAT_HEAD, "운영"].map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
-                <TableBody>
-                  {models.map((model) => {
-                    const stat = statOf(`ml:${model.modelKey}`, model.configVersionId);
-                    return (
-                      <TableRow key={model.configVersionId} data-method={`ml:${model.modelKey}`}>
-                        <TableCell>{methodName(methods, model.modelKey)}</TableCell>
-                        <NameCell
-                          name={<Link className="text-link underline-offset-2 hover:underline" to={paths.detectionModel(model.configVersionId)} state={{ returnTo: sectionReturnTo(location, detectionSections.operationsStatus) }}>{versionLabel({ id: model.configVersionId, displayName: model.displayName })}</Link>}
-                          note={`적용 ${stampText(stat?.enabledSince)}`}
-                        />
-                        <StatCells method={stat} report={report} now={now} />
-                        <TableCell><Button size="sm" variant="outline" onClick={() => onRetire(model)}>운영에서 제외</Button></TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground" data-no-model>운영 중인 {ML_TERM}이 없습니다. 룰만으로 판정합니다.</p>
-          )}
+          <div className="overflow-x-auto">
+            <Table aria-label="모델 작동 상태">
+              <TableCaption>{SLOT_CAPTION} · {label}</TableCaption>
+              <TableHeader><TableRow>{[frameText.slotModel, "버전", ...STAT_HEAD, "운영"].map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
+              <TableBody>
+                {slots.map(({ frame, models: inSlot }) => (inSlot.length ? inSlot.map((model) => {
+                  const stat = statOf(`ml:${model.modelKey}`, model.configVersionId);
+                  return (
+                    <TableRow key={model.configVersionId} data-method={`ml:${model.modelKey}`} data-frame={frame ?? "unknown"}>
+                      <TableHead scope="row" className="h-auto font-normal">
+                        <span className="grid gap-0.5">
+                          {frame ? <strong className="font-semibold">{frameLabels[frame]}</strong> : <span className="text-muted-foreground">{methods ? frameText.unknownFrame : DASH}</span>}
+                          <span>{methodName(methods, model.modelKey)}</span>
+                        </span>
+                      </TableHead>
+                      <NameCell
+                        name={<Link className="text-link underline-offset-2 hover:underline" to={paths.detectionModel(model.configVersionId)} state={{ returnTo: sectionReturnTo(location, detectionSections.operationsStatus) }}>{versionLabel({ id: model.configVersionId, displayName: model.displayName })}</Link>}
+                        note={`적용 ${stampText(stat?.enabledSince)}`}
+                      />
+                      <StatCells method={stat} report={report} now={now} />
+                      <TableCell><Button size="sm" variant="outline" onClick={() => onRetire(model)}>운영에서 제외</Button></TableCell>
+                    </TableRow>
+                  );
+                }) : frame ? [<EmptySlotRow key={frame} frame={frame} methods={methodsOfFrame(methods, frame)} />] : []))}
+              </TableBody>
+            </Table>
+          </div>
+          {!models.length && <p className="text-sm text-muted-foreground" data-no-model>운영 중인 {ML_TERM}이 없습니다. 룰만으로 판정합니다.</p>}
           <p className="text-xs text-muted-foreground">{criteriaText(report.firstRunWaitMs)} · 판단하지 않은 경우(예: 종료 시각 없음)는 성공으로 셉니다</p>
         </>
       )}

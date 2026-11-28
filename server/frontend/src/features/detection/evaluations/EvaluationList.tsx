@@ -13,8 +13,17 @@ import { comparisonKey, type CompareVersion, type ComparisonListItem, type Evalu
 import { REC_STATE_LABELS, comparisonStatus, decisionLabel, labelOf } from "./evaluationFormat";
 import { useCompareVersions, useComparisons, useEvaluationSets } from "./useEvaluations";
 import { detectionSections, sectionReturnTo } from "../detectionToc";
+import { frameLabels, frameOfModelKey, modelFrames } from "../models/modelFrames";
+import type { CatalogMethod } from "../models/modelsApi";
+import { useCapabilities } from "../models/useModels";
 
-const COLUMNS = ["비교", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
+const COLUMNS = ["비교", "자리", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
+/** 비교의 자리(틀): 기준 운영 버전·추천의 모델 키 → 카탈로그 틀(modelFrames.ts). 모르면 —. */
+const slotText = (item: ComparisonListItem, methods: CatalogMethod[] | undefined) => {
+  const keys = [...item.baselines.map((baseline) => baseline.modelKey), ...(item.recommendations ?? []).map((rec) => rec.modelKey)];
+  const frames = modelFrames.filter((frame) => keys.some((key) => frameOfModelKey(methods, key) === frame));
+  return frames.length ? frames.map((frame) => frameLabels[frame]).join(", ") : DASH;
+};
 
 const RecommendationCell = ({ item, versions }: { item: ComparisonListItem; versions: CompareVersion[] | undefined }) => {
   // 추천 배열이 없으면 완료 뒤 사유(추천 계산 전 결과 `not_implemented_v1`)를 미연결로 보인다. 완료 전은 빈칸.
@@ -34,12 +43,13 @@ const RecommendationCell = ({ item, versions }: { item: ComparisonListItem; vers
   );
 };
 
-const ComparisonRow = ({ item, sets, versions, returnTo }: { item: ComparisonListItem; sets: EvaluationSet[] | undefined; versions: CompareVersion[] | undefined; returnTo: string }) => {
+const ComparisonRow = ({ item, sets, versions, methods, returnTo }: { item: ComparisonListItem; sets: EvaluationSet[] | undefined; versions: CompareVersion[] | undefined; methods: CatalogMethod[] | undefined; returnTo: string }) => {
   const status = comparisonStatus(item.status, item.failedCount);
   const baselines = item.baselines.map((baseline) => labelOf(versions, baseline.configVersionId)).join(", ");
   return (
     <TableRow>
       <TableCell><Link className="text-link underline-offset-2 hover:underline" to={paths.detectionEvaluation(comparisonKey(item))} state={{ returnTo }}>{comparisonKey(item).slice(0, 8)}</Link></TableCell>
+      <TableCell>{slotText(item, methods)}</TableCell>
       <TableCell>{sets?.find((set) => set.id === item.evaluationSetId)?.displayName ?? item.evaluationSetId.slice(0, 8)}</TableCell>
       <TableCell className="whitespace-normal">{numberText(item.itemCount)}개{baselines ? ` (기준 운영 ${baselines})` : ""}</TableCell>
       <TableCell>{stampText(item.completedAt)}</TableCell>
@@ -56,6 +66,7 @@ export const ComparisonsCard = () => {
   const list = useComparisons(tab.value);
   const sets = useEvaluationSets();
   const versions = useCompareVersions();
+  const capabilities = useCapabilities();
   const { first, items } = list;
   return (
     <SectionCard id={detectionSections.evaluationsList.id} title={detectionSections.evaluationsList.label}>
@@ -76,7 +87,7 @@ export const ComparisonsCard = () => {
               <TableRow>{COLUMNS.map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => <ComparisonRow key={comparisonKey(item)} item={item} sets={sets.data?.items} versions={versions.data} returnTo={sectionReturnTo(location, detectionSections.evaluationsList)} />)}
+              {items.map((item) => <ComparisonRow key={comparisonKey(item)} item={item} sets={sets.data?.items} versions={versions.data} methods={capabilities.data?.methodCatalog.methods} returnTo={sectionReturnTo(location, detectionSections.evaluationsList)} />)}
             </TableBody>
           </Table>
         </div>

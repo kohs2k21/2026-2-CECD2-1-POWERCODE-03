@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-28T18:33:11+09:00
+Updated: 2026-11-28T23:01:32+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -223,7 +223,7 @@ Status: draft
 
 ### 두 틀 — 활성 집합 규칙 [확정 11/28 — 구현 전]
 
-- 근거: 사용자 11/28 결정(이상 ML 두 틀 — 틀 고정, 틀 안에서 알고리즘만 교체). 틀 정의와 방법별 `frame`은 [method-catalog.md](method-catalog.md) "틀·결과 코드·틀별 추천" 절. 이 절은 위 활성 집합 절의 `modelKey` 기준 유일성·`apply`/`replace` 의미·`detection_methods_empty`·stale 기준을 **대체**한다. 구현 전까지 API·Detector·Trainer 코드는 위 `modelKey` 규칙대로 동작한다(지금 활성화할 수 있는 모델은 `ml:iforest`(`row`)뿐이라 운영 결과는 같다)
+- 근거: 사용자 11/28 결정(이상 ML 두 틀 — 틀 고정, 틀 안에서 알고리즘만 교체). 틀 정의와 방법별 `frame`은 [method-catalog.md](method-catalog.md) "틀·결과 코드·틀별 추천" 절. 이 절은 위 활성 집합 절의 `modelKey` 기준 유일성·`apply`/`replace` 의미·`detection_methods_empty`·stale 기준을 **대체**한다. 구현 전까지 API·Trainer 코드는 위 `modelKey` 규칙대로 동작한다(지금 활성화할 수 있는 모델은 `ml:iforest`(`row`)뿐이라 운영 결과는 같다). Detector는 아래 "고정 시 불일치"와 "정의 변경"의 판정 쪽(행 판정 방법 0개·`n_ml`)을 구현했다(`detector/operational_state.py`)
 - 틀 값의 자리
   - 정본: 카탈로그 방법 항목 `frame`(`methodId`마다 불변)
   - 버전 행: 학습(Trainer)이 `ml_config_models.training_settings.frame`에 그 `methodId`의 카탈로그 `frame`을 기록한다. 불변 표라 학습 때만 쓴다(jsonb, migration 없음)
@@ -236,7 +236,7 @@ Status: draft
   - `retire`: 그대로(틀과 무관)
   - `restore`: 결과 상태가 틀당 1개를 어기면(예: `frame` 없는 과거 스냅샷에 IF와 K-Means가 함께 있어 둘 다 `row`) **422 `active_frame_occupied:<frame>`로 거절하고 자동으로 줄이지 않는다**(저장 직전 재검사와 같은 자리)
 - 저장 시 `frame` 일치 검사(`apply`·`replace`·`restore`, 항목마다): 카탈로그 `frame` ≠ 버전 행 `training_settings.frame`(없으면 `row`)이거나, `restore`의 스냅샷 항목 `frame`(없으면 `row`) ≠ 카탈로그 `frame`이면 422 `frame_mismatch:<methodId>`. 순서는 기술 무결성 gate → `frame_mismatch` → 틀 점유(`active_frame_occupied`·`active_frame_empty`) → 공통 검사. 다른 틀로 옮기는 자동 보정은 없다. 카탈로그에 없는 `methodId`는 지금 규칙 그대로
-- 고정 시 불일치(Detector 운영 상태 고정 — 판정 시도와 비교 평가 종합이 같은 함수): 항목마다 스냅샷 `frame`(없으면 `row`)과 Detector 이미지의 카탈로그 `frame`을 비교해 **불일치 항목이 속한 틀만 fail-closed**, 다른 틀은 계속. "속한 틀"은 **스냅샷 `frame`(없으면 `row`) 기준**이다(카탈로그 값이 아님 — 운영자가 저장한 자리를 멈춘다)
+- 고정 시 불일치(Detector 운영 상태 고정 — 판정 시도와 비교 평가 종합이 같은 함수) [Detector 구현]: 항목마다 스냅샷 `frame`(없으면 `row`)과 Detector 이미지의 카탈로그 `frame`을 비교해 **불일치 항목이 속한 틀만 fail-closed**, 다른 틀은 계속. "속한 틀"은 **스냅샷 `frame`(없으면 `row`) 기준**이다(카탈로그 값이 아님 — 운영자가 저장한 자리를 멈춘다)
   - `row` 쪽 불일치: 판정 행 없이 시도 실패(원인 `frame_mismatch`) — **룰 판정도 멈춘다**. 불일치 항목을 빼고 돌리면 그 시도의 행 방법 집합·`n_ml`이 저장된 활성 집합과 달라져 "고정한 리비전 그대로 판정"이 깨지기 때문이다. 카탈로그에 없는 방법은 다르다 — 그 방법만 `not_executable` 미판정이고 집합은 그대로라 시도를 계속한다
   - `trend` 쪽 불일치: 시계열 틀만 멈추고 행 판정은 계속한다. 기록 형식은 시계열 판정 계약(후속)
 - 정의 변경(detection-decision.md 6절·7.4와 같은 정의)

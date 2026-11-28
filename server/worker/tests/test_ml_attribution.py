@@ -510,6 +510,8 @@ class RealIsolationForest(unittest.TestCase):
         model = attempt_v04._Model(ActiveModel(uuid.uuid4(), "iforest"), self.fixture.context)
         outcome = attempt_v04._run_model(model, ANOMALOUS_RAW, self.fixture.root)
         self.assertEqual(outcome.result["status"], "succeeded")
+        # 결과 코드는 카탈로그 resultCode(레지스트리 규칙)에서 읽고, IF는 호환 예외 IF_ANOMALY 그대로다.
+        self.assertEqual((outcome.result["anomalous"], outcome.result["code"]), (True, "IF_ANOMALY"))
         self.assertEqual(Path(outcome.measured["reference"]["modelPath"]).resolve(),
                          Path(self.fixture.reference["modelPath"]).resolve())
         self.assertEqual(outcome.measured["features"][0], self.fixture.context)

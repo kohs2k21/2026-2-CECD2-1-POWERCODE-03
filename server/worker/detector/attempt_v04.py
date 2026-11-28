@@ -35,7 +35,6 @@ from methods.registry import method_for_key
 from telemetry import cost_family
 from trainer.lease import lock_training_ownership
 
-ML_RESULT_CODES = {"iforest": "IF_ANOMALY"}
 LOGGER = logging.getLogger(__name__)
 
 
@@ -48,7 +47,9 @@ class _Model:
 
 
 def load_models(conn: Any, state: PinnedState, source_id: uuid.UUID) -> list[_Model]:
-    """모델 하나를 읽지 못해도 다른 방법의 결과는 지우지 않는다. 그 모델만 미판정이 된다(v04 시도·비교 평가 종합 공용)."""
+    """모델 하나를 읽지 못해도 다른 방법의 결과는 지우지 않는다. 그 모델만 미판정이 된다(v04 시도·비교 평가 종합 공용).
+
+    행 틀 모델(state.active_models)만 읽는다. 시계열 틀 모델(state.trend_models)은 PROCESS 판정 방법이 아니다."""
     models = []
     for active in state.active_models:
         try:
@@ -92,7 +93,7 @@ def _run_model(model: _Model, raw: Mapping[str, Any], root: Any) -> MethodOutcom
         return MethodOutcome(_ml_unresolved(model, cause, **outcome))
 
     method = method_for_key(active.model_key)
-    if method is None or not method.executable_process or active.model_key not in ML_RESULT_CODES:
+    if method is None or not method.executable_process:
         return unresolved("not_executable")
     if context is None:
         return unresolved("not_configured")
@@ -122,14 +123,15 @@ def _run_model(model: _Model, raw: Mapping[str, Any], root: Any) -> MethodOutcom
         return unresolved("failure", status="failed", failure_code="invalid_score")
     return MethodOutcome(
         ml_method_result(active.method_id, method.method_version, str(active.config_version_id), score, row[6],
-                         row[5].get("thresholdPolicy"), code=ML_RESULT_CODES[active.model_key]),
+                         row[5].get("thresholdPolicy"), code=method.result_code),
         {"preprocessMs": (scored - began) * 1000, "inferenceMs": (time.monotonic() - scored) * 1000,
          "features": (context, values, missing), "reference": reference})
 
 
 def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any,
            relation: RelationPlan | None = None) -> list[MethodTask]:
-    """순서: 하드룰(내장 목록 순 → 관계 → 프로토콜, relation_plan이 고른 것만) → 소프트룰(룰 세트 순) → ML(활성 집합 순).
+    """순서: 하드룰(내장 목록 순 → 관계 → 프로토콜, relation_plan이 고른 것만) → 소프트룰(룰 세트 순) → ML(행 틀 모델,
+    활성 집합 순).
 
     relation이 없으면 켜진 내장 하드룰 전부(관계 입력이 필요한 규칙이 없는 판정). 소프트룰은 scope가 판정 PROCESS와
     맞는 것만 과제로 만든다(relation-rules.md 4절 — 맞지 않으면 methodResults·n에서 뺀다).

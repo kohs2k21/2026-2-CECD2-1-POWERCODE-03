@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-28T18:33:11+09:00
+Updated: 2026-11-28T23:01:32+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -83,7 +83,7 @@ Status: draft
 - **`frame` 불변**: 한 `methodId`의 `frame`은 바꾸지 않는다. 틀을 바꾸려면 새 `methodId`. 같은 알고리즘을 두 틀에서 쓰면 항목을 따로 둔다(입력·파라미터·산출물이 다름)
 - 방법 id: 행 단위 `ml:<algo>`(기존 id 그대로, 예 `ml:iforest`·`ml:lof`), 시계열 **`ml:trend-<algo>`**(예 `ml:trend-iforest`). `ml:trend-` 접두 ⇔ `frame=trend`. 예외 1개: 연구 전용 기존 항목 `ml:eif`(`frame=trend`, 실행 불가)는 접두 없이 두고, **실행 가능해질 때 `ml:trend-eif`로 다시 등재**한다. 예외는 실행 불가(`status`가 `supported`가 아니고 `executable` 값이 모두 false)인 동안만 허용하며 새 예외는 두지 않는다
 - **`resultCode`**: 그 방법이 T일 때 방법 결과에 남기는 코드(detection-decision.md 6절). 값은 기계 규칙 **`ML_<modelKey 대문자, '-'→'_'>`** — `ml:lof` → `ML_LOF`, `ml:trend-iforest` → `ML_TREND_IFOREST`. 예외는 **`ml:iforest` = `IF_ANOMALY` 하나**(과거 판정 행·화면·집계 호환). 카탈로그 전체에서 유일 — `trend-iforest`와 `trend_iforest`처럼 같은 코드가 되는 키는 함께 둘 수 없다. 시계열 방법 코드를 쓰는 자리는 시계열 판정 계약(후속)이 정한다. 틀로 묶어 볼 때는 코드가 아니라 `methodId` → `frame`으로 묶는다
-  - 현재 코드 [구현 전]: Detector는 고정 사전(`IF_ANOMALY` 하나)으로 코드를 정한다. 레지스트리 값 읽기는 후속 구현(IF 결과 불변)
+  - 현재 코드: Detector 행 경로는 레지스트리 방법 항목의 `resultCode`를 읽는다(고정 사전 없음, IF 결과 `IF_ANOMALY` 불변)
 - 최상위 **`frames`**: 키 `row`·`trend` 정확히 2개, 값 `{displayName, recommendedMethodId, recommendedParameters, evidence}`
   - `displayName`: 틀 이름(잠정 `행 단위 모델` / `시계열 모델`). 화면 이름표는 `frames.<frame>.displayName · 방법 displayName`(서버 값만 사용, 화면 하드코딩 없음)
   - 추천(틀마다 **0..1개**): `recommendedMethodId`·`recommendedParameters`·`evidence {reportRef, evaluationSet, metric, decidedAt}`. 셋은 함께 `null`이거나 함께 값. **지금은 모두 `null`**(실험 전 — 운영 중인 IF를 추천으로 표시하지 않음)

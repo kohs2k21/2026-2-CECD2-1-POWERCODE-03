@@ -218,7 +218,7 @@
 
 - 방법마다 결과 1개. v04 작업은 활성 집합의 모델마다 방법 1개로 실행한다(`detector/attempt_v04.py`, #112). 실행 어댑터는 `ml:iforest`뿐이고 그 밖의 모델은 `not_executable`이다. v03 작업은 구성당 IF 1개 그대로다 [코드 `computation.py`]
 - 운영 단위 [확정 11/02 C20]: 모델 하나 = 버전 계열 하나, 운영 = **활성 집합 0..N개**(활성화·운영에서 빼기·교체·복원, 활성 집합 리비전 이력 — #94 `model-version.md` "활성 집합 — 활성화·운영에서 빼기·교체·복원" 절). 같은 `modelKey`의 버전은 활성 집합 안에 동시에 1개까지만(위반 저장은 #94 422 `active_model_key_duplicate:<modelKey>`) → `ml:<modelKey>`가 판정 안에서 유일. n_ml = 활성 집합의 모델 수, ML 순서 = 활성 집합 순서(활성화 순서)
-  - 두 틀 [확정 11/28 C31 — 구현 전]: 활성 집합은 **틀당 최대 1**(합계 최대 2, `model-version.md` "두 틀 — 활성 집합 규칙" 절). **n_ml = 행 틀 활성 모델 수**(0 또는 1)이고 ML 방법 결과는 행 틀 모델 1개까지다. 시계열 틀 모델은 실행 검사·모델 읽기·행 과제·비교 평가 종합에 넣지 않는다. 고정 시 스냅샷 `frame`(없으면 `row`) ≠ 카탈로그 `frame`인 행 틀 항목이 있으면 판정 행 없이 시도 실패(원인 `frame_mismatch`, 룰 판정도 멈춤). 지금 코드는 활성 집합 모델 전체를 센다 — 활성화할 수 있는 모델이 `ml:iforest`(`row`)뿐이라 결과는 같다
+  - 두 틀 [확정 11/28 C31 — 구현 전]: 활성 집합은 **틀당 최대 1**(합계 최대 2, `model-version.md` "두 틀 — 활성 집합 규칙" 절). **n_ml = 행 틀 활성 모델 수**(0 또는 1)이고 ML 방법 결과는 행 틀 모델 1개까지다. 시계열 틀 모델은 실행 검사·모델 읽기·행 과제·비교 평가 종합에 넣지 않는다. 고정 시 스냅샷 `frame`(없으면 `row`) ≠ 카탈로그 `frame`인 행 틀 항목(행 틀 여부는 스냅샷 `frame` 기준)이 있으면 판정 행 없이 시도 실패(원인 `frame_mismatch`, 룰 판정도 멈춤). 지금 코드는 활성 집합 모델 전체를 센다 — 활성화할 수 있는 모델이 `ml:iforest`(`row`)뿐이라 결과는 같다
 - 결과 규칙: 점수가 판정선 방향으로 넘으면 T(`computation.py:139`), 입력·산출물·판정선이 없으면 U(`not_ready`), 계산 오류는 U(`failed`)
 - 미판정 원인: 산출물 파일이 없으면 `not_ready`/`not_configured`, 파일은 있는데 해시·변수 정의가 맞지 않으면 `failed`/`failure`/`artifact_invalid`다. 모델을 읽지 못하면 `not_configured`이고 사유를 `evidence[].reason`에 남긴다. 활성 모델과 관측의 source가 달라도 같다 [확정 11/05 C29, 형식 D21]. ML 입력 결측·변환 실패는 `feature_unavailable`이다 [D22]
 - `scoreDetail` [확정 10/22 C16, 필드 이름 확정 11/03 U10]: `{raw, threshold, direction, thresholdPolicy, normalized}`

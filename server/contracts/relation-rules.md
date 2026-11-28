@@ -1,5 +1,5 @@
 Created: 2026-11-12T16:31:29+09:00
-Updated: 2026-11-14T04:00:00+09:00
+Updated: 2026-11-28T21:00:00+09:00
 Author: Claude Code — Detector 세션(builder)
 Status: current — 실험 기능 설계(Detector 구현 세부는 3.4·6.5절, 9절은 설계 당시 변경 계획 기록)
 
@@ -129,7 +129,7 @@ Status: current — 실험 기능 설계(Detector 구현 세부는 3.4·6.5절, 
 - 대조: 판정 PROCESS의 `process_id`·`adapter_type`·`process_hub_id`(`002_core_erd.sql:63-64`)와 **원래 값 정확 일치**, 대조 값 결측이면 적용 안 함. 결측 판단 함수는 `graph_value_absent` [제안]
 - **scope가 맞는 켜진 소프트룰만 실행·n에 포함**. 맞지 않으면 그 판정 `methodResults`에서 제외(n 부풀림 방지). 현재는 켜진 소프트룰 전부를 실행(`attempt_v04.py:128-137`)
 - 저장 검사(API) [제안 — 검사 위치는 `detection_methods_empty`와 같이 **모든 저장 경로**: 룰 세트 저장(되돌리기 포함)·모델 `retire`·활성 집합 `replace`·`restore`, detection-decision.md 7.4]
-  - **scope 없는 방법이 1개 이상**: 켜진 내장 하드룰(`hard:transaction-failed` 제외), scope 없는 켜진 소프트룰, 활성 모델 중 하나. 관계 규칙은 항상 단계·인터페이스에 묶이므로 세지 않음. 프로토콜 규칙(`hard:proto-*`)과 내장 `hard:unregistered-interface`도 거래 행 도착 때만 평가되므로 세지 않음(protocol-rules.md 4.1). `hard:transaction-failed`는 첫 판정에서 거의 항상 수집 미완료 보류라 n에서 빠지므로, 그것뿐이면 모든 첫 판정이 `detection_methods_empty`로 실패한다 — 그래서 세지 않음. 이 검사가 빠지면 Detector는 그 판정 시도를 실패로 끝낸다(`decision.py:22-23`, fail-closed 현행대로)
+  - **scope 없는 방법이 1개 이상**: 켜진 내장 하드룰(`hard:transaction-failed` 제외), scope 없는 켜진 소프트룰, 활성 모델([확정 11/28 — 구현 전] **행 틀** 활성 모델 — model-version.md "두 틀 — 활성 집합 규칙" 절) 중 하나. 관계 규칙은 항상 단계·인터페이스에 묶이므로 세지 않음. 프로토콜 규칙(`hard:proto-*`)과 내장 `hard:unregistered-interface`도 거래 행 도착 때만 평가되므로 세지 않음(protocol-rules.md 4.1). `hard:transaction-failed`는 첫 판정에서 거의 항상 수집 미완료 보류라 n에서 빠지므로, 그것뿐이면 모든 첫 판정이 `detection_methods_empty`로 실패한다 — 그래서 세지 않음. 이 검사가 빠지면 Detector는 그 판정 시도를 실패로 끝낸다(`decision.py:22-23`, fail-closed 현행대로)
   - **`message_handoff`에 짝 `precedes`가 켜져 있지 않으면 저장은 허용하고 경고**(경고 코드 `relation_handoff_without_precedes`) [제안, WebUI·Trainer 수용]. 짝 = 같은 `from`·`to`이면서 `scope`가 handoff의 `scope`와 같거나 `null`(`interfaceId`는 비교에서 뺌 — 2절·8절과 같은 기준). 응답 위치: `PUT /api/rule-set`·`POST /api/rule-set/preview` 응답 최상위 `warnings: [{code, ruleId, message}]` [제안]. 경고 문장(WebUI가 그대로 씀): "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다." 근거: 짝 `precedes`가 후보 기준 미달이면 그 선행 관계는 규약이 아닐 가능성이 크고 억지로 켜면 오탐이 생김. 결과: 선행이 다른 경로에서는 인계를 보지 않음(의도된 동작). 대상은 룰 세트 저장(되돌리기 포함)만 — 모델 `retire`·활성 집합 경로는 관계 규칙을 바꾸지 않아 대상 아님
 - 시도 시작 검사 `ensure_executable`(`operational_state.py:124-125`)은 scope와 무관하게 켜진 방법 전체를 센다. 판정별 개수는 `decide`(`decision.py:113`)가 다시 검사
 - k가 모두 1(U4)이라 지금은 문제없다. U4를 풀면 scope 선택으로 판정마다 n이 k보다 작아져 `ensure_executable`(`decision.py:27-28`)이 시도를 실패시킬 수 있다 — 그때 다시 정함

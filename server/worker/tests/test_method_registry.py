@@ -21,7 +21,7 @@ from methods import registry
 REPO = Path(__file__).resolve().parents[3]
 SCHEMA = json.loads(registry.SCHEMA_PATH.read_text(encoding="utf-8"))
 
-# method-catalog.md 소프트룰 등록 필드 표(v2): fieldId → (valueType, unit, displayPrecision, mode, sourceMissingPolicy)
+# method-catalog.md 소프트룰 등록 필드 표(v2부터 그대로, v3): fieldId → (valueType, unit, displayPrecision, mode, sourceMissingPolicy)
 CONTRACT_FIELDS = {
     "total_count": ("integer", "count", 0, None, None),
     "success_count": ("integer", "count", 0, None, None),

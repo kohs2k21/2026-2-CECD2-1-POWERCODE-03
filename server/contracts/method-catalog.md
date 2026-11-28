@@ -102,7 +102,7 @@ Status: draft
 - 원본 `server/worker/methods/registry.py`(Trainer 소유 제안). ML 항목 = dataclass 1개 + 어댑터 프로토콜(`prepare/fit/score`). **소프트룰 필드** = 같은 모듈의 필드 dataclass(`fieldId`·AST·단위) + 값 계산 함수(`derived_expression.evaluate` 재사용) — Detector는 읽기만
 - API는 생성된 `server/contracts/method-catalog.json`(스키마 통과본)을 읽음. 생성·검증 [#111 구현]: `server/worker`에서 `python -m methods.registry --write`로 생성, `--check`로 커밋본 대조(재생성본과 다르면 종료 코드 1). **재생성본 == 커밋본**은 시험(`server/worker/tests/test_method_registry.py`)으로 고정됨. 생성이 결정적이도록 `generatedFrom.gitRef`는 실행 시점 git ref가 아니라 계약 근거 ref 상수(`7f24e03`)이며 `generatedAt`은 두지 않음
 - 확장: ML 항목 추가 = dataclass + 어댑터 + 시험; 필드 추가 = dataclass + AST 검증 시험. 사용자 등록 API 없음
-- 틀·결과 코드 [11/28]: `frame`·`resultCode`는 dataclass에 적지 않고 생성 때 `inputRequirements.unit`·`methodId`에서 만든다. 생성(`build_catalog`)이 "틀·결과 코드·틀별 추천" 절 규칙을 검사해 어기면 생성 실패. `--write`는 대상 파일(직전 커밋본)과 비교해 이미 있는 `methodId`의 `frame`이 바뀌면 쓰지 않고 종료 코드 1(`frame` 키가 없는 v2 판은 같은 1:1 규칙으로 `unit`에서 읽음)
+- 틀·결과 코드 [11/28]: `frame`·`resultCode`는 dataclass에 적지 않고 생성 때 `inputRequirements.unit`·`methodId`에서 만든다. 생성(`build_catalog`)이 "틀·결과 코드·틀별 추천" 절 규칙을 검사해 어기면 생성 실패. `--write`는 작업 트리의 대상 파일(보통 커밋본)과 비교해 이미 있는 `methodId`의 `frame`이 바뀌면 쓰지 않고 종료 코드 1(`frame` 키가 없는 v2 판은 같은 1:1 규칙으로 `unit`에서 읽음)
 
 ## 조회 API
 
@@ -220,7 +220,7 @@ Status: draft
 
 - 카탈로그 JSON은 `method-catalog.schema.json`을 통과. `defaults`는 자신의 `parameterSchema`를 통과. `softRuleFields[].source.ast`는 `derived_expression.validate`를 통과하고 `unit(ast)`가 필드 `unit`과 같아야 함(시험)
 - 카탈로그 JSON 생성·검증 [#111 구현]: `python -m methods.registry --write`로 생성, `--check`로 커밋본 대조. 재생성본 == 커밋본·schema 통과·`defaults`의 `parameterSchema` 통과는 `server/worker/tests/test_method_registry.py`가 고정. 위 예시 JSON은 생성물과 필드 단위로 같아야 함(#116 정정)
-- 틀·결과 코드·틀별 추천 [11/28, 같은 시험]: ① `frame` = `unit`의 1:1 대응(schema의 `unit` 값마다 틀 하나, 틀마다 `unit` 하나) ② 이미 있는 `methodId`의 `frame` 불변(시험의 고정 목록 + `--write`의 직전 커밋본 대조) ③ `ml:trend-` 접두 ⇔ `frame=trend`(예외 `ml:eif`는 실행 불가인 동안만) ④ `resultCode` = 기계 규칙, 전체 유일, `IF_ANOMALY` 예외는 `ml:iforest` 하나 ⑤ `frames`는 `row`·`trend` 정확히, 틀마다 이름 1개·추천 0..1(같은 틀·그 틀에서 실행 가능·파라미터 schema 통과·근거 4필드). schema도 `frame` ↔ `unit`, `ml:trend-` → `trend`, 추천 셋의 함께 null/값을 검사
+- 틀·결과 코드·틀별 추천 [11/28, 같은 시험]: ① `frame` = `unit`의 1:1 대응(schema의 `unit` 값마다 틀 하나, 틀마다 `unit` 하나) ② 이미 있는 `methodId`의 `frame` 불변(시험의 고정 목록 + `--write`의 대상 파일(보통 커밋본) 대조) ③ `ml:trend-` 접두 ⇔ `frame=trend`(예외 `ml:eif`는 실행 불가인 동안만) ④ `resultCode` = 기계 규칙, 전체 유일, `IF_ANOMALY` 예외는 `ml:iforest` 하나 ⑤ `frames`는 `row`·`trend` 정확히, 틀마다 이름 1개·추천 0..1(같은 틀·그 틀에서 실행 가능·파라미터 schema 통과·근거 4필드). schema도 `frame` ↔ `unit`, `ml:trend-` → `trend`, 추천 셋의 함께 null/값을 검사
 - `executable.process=true` 항목은 `server/` 어댑터 등록 실제 존재. 연구 경로 항목은 `server/`에서 `research/` import 금지
 - `uiTarget.path`·`sourceRef.path`는 저장소에 실제 존재
 - 이 초안 검증(실행): 위 예시 JSON을 jsonschema(Draft 2020-12)로 검증 — 결과는 #94 보고 참조

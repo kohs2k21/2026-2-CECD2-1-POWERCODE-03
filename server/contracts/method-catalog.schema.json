@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:powercode:trainer:method-catalog:v2",
+  "$id": "urn:powercode:trainer:method-catalog:v3",
   "type": "object",
   "additionalProperties": false,
-  "required": ["catalogVersion", "generatedFrom", "categoryDisplayNames", "hardRules", "softRuleFields", "softRule", "methods"],
+  "required": ["catalogVersion", "generatedFrom", "categoryDisplayNames", "hardRules", "softRuleFields", "softRule", "frames", "methods"],
   "properties": {
-    "catalogVersion": {"const": "method-catalog-v2"},
+    "catalogVersion": {"const": "method-catalog-v3"},
     "generatedFrom": {"type": "object", "additionalProperties": false, "required": ["gitRef"],
       "properties": {"gitRef": {"$ref": "#/$defs/text"}, "generatedAt": {"type": "string"}}},
     "categoryDisplayNames": {"type": "object", "additionalProperties": false, "required": ["hard", "soft", "ml"],
@@ -28,10 +28,29 @@
         "maxRules": {"type": "integer", "minimum": 1, "maximum": 1024},
         "thresholdSerialization": {"const": "fixed-decimal-string"}
       }},
+    "frames": {"type": "object", "additionalProperties": false, "required": ["row", "trend"],
+      "properties": {"row": {"$ref": "#/$defs/frameEntry"}, "trend": {"$ref": "#/$defs/frameEntry"}}},
     "methods": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/method"}}
   },
   "$defs": {
     "text": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!.*[\\u0000-\\u001f])\\S(?:.*\\S)?$"},
+    "frame": {"enum": ["row", "trend"]},
+    "frameEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["displayName", "recommendedMethodId", "recommendedParameters", "evidence"],
+      "properties": {
+        "displayName": {"$ref": "#/$defs/text"},
+        "recommendedMethodId": {"anyOf": [{"type": "null"}, {"type": "string", "pattern": "^ml:[a-z][a-z0-9_-]{1,63}$"}]},
+        "recommendedParameters": {"type": ["object", "null"]},
+        "evidence": {"anyOf": [{"type": "null"},
+          {"type": "object", "additionalProperties": false, "required": ["reportRef", "evaluationSet", "metric", "decidedAt"],
+           "properties": {"reportRef": {"$ref": "#/$defs/text"}, "evaluationSet": {"$ref": "#/$defs/text"},
+                          "metric": {"$ref": "#/$defs/text"}, "decidedAt": {"$ref": "#/$defs/text"}}}]}
+      },
+      "if": {"properties": {"recommendedMethodId": {"type": "null"}}},
+      "then": {"properties": {"recommendedParameters": {"type": "null"}, "evidence": {"type": "null"}}},
+      "else": {"properties": {"recommendedParameters": {"type": "object"}, "evidence": {"type": "object"}}}
+    },
     "methodId": {"type": "string", "pattern": "^(hard|soft|ml):[a-z][a-z0-9_-]{1,63}$"},
     "kind": {"enum": ["hard", "soft", "ml"]},
     "category": {"enum": ["RULE", "ML"]},
@@ -135,16 +154,18 @@
     },
     "method": {
       "type": "object", "additionalProperties": false,
-      "required": ["methodId", "kind", "category", "displayName", "status", "methodVersion", "uiTarget", "executable",
-                   "runtime", "parameterSchema", "parameterSchemaStatus", "defaults", "defaultsSource",
+      "required": ["methodId", "kind", "category", "frame", "displayName", "status", "methodVersion", "resultCode", "uiTarget",
+                   "executable", "runtime", "parameterSchema", "parameterSchemaStatus", "defaults", "defaultsSource",
                    "inputRequirements", "sourceRef", "canDisable"],
       "properties": {
         "methodId": {"type": "string", "pattern": "^ml:[a-z][a-z0-9_-]{1,63}$"},
         "kind": {"const": "ml"},
         "category": {"const": "ML"},
+        "frame": {"$ref": "#/$defs/frame"},
         "displayName": {"$ref": "#/$defs/text"},
         "status": {"$ref": "#/$defs/status"},
         "methodVersion": {"$ref": "#/$defs/text"},
+        "resultCode": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,80}$"},
         "uiTarget": {"type": "object", "additionalProperties": false, "required": ["scope", "path"],
           "properties": {"scope": {"enum": ["server", "research"]}, "path": {"$ref": "#/$defs/text"}, "ref": {"$ref": "#/$defs/text"}}},
         "executable": {"type": "object", "additionalProperties": false, "required": ["process", "window"],
@@ -176,7 +197,13 @@
         {"if": {"properties": {"status": {"const": "supported"}}},
          "then": {"properties": {"uiTarget": {"properties": {"scope": {"const": "server"}}}}}},
         {"if": {"properties": {"parameterSchemaStatus": {"const": "unconfirmed"}}},
-         "then": {"properties": {"defaults": {"type": "null"}}}}
+         "then": {"properties": {"defaults": {"type": "null"}}}},
+        {"if": {"properties": {"frame": {"const": "row"}}, "required": ["frame"]},
+         "then": {"properties": {"inputRequirements": {"properties": {"unit": {"const": "process_row"}}}}}},
+        {"if": {"properties": {"frame": {"const": "trend"}}, "required": ["frame"]},
+         "then": {"properties": {"inputRequirements": {"properties": {"unit": {"const": "aggregated_window"}}}}}},
+        {"if": {"properties": {"methodId": {"pattern": "^ml:trend-"}}, "required": ["methodId"]},
+         "then": {"properties": {"frame": {"const": "trend"}}}}
       ]
     }
   }

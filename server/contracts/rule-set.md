@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-14T04:00:00+09:00
+Updated: 2026-11-28T18:25:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -61,7 +61,7 @@ Status: draft
   "savedAt": "2026-11-02T08:12:33Z",
   "savedBy": {"actorId": "admin-01", "displayName": "관리자"},
   "restoredFromRevision": null,
-  "catalogVersion": "method-catalog-v2",
+  "catalogVersion": "method-catalog-v3",
   "counts": {"hardEnabled": 4, "hardTotal": 4, "softEnabled": 1, "softTotal": 2},
   "hardRules": [
     {"id": "hard:process-status", "methodVersion": "process-status-hr-v2", "displayName": "상태가 S가 아님", "conditionText": "STATUS ≠ S",
@@ -150,7 +150,7 @@ Status: draft
 | `severity` ∉ {info, warning, critical} | 422 `soft_rule_severity_invalid:<…>` |
 | `name` 길이·중복 | 422 `soft_rule_name_invalid` / `soft_rule_name_duplicate` |
 | 소프트룰 수 > 32(현행 Rule 상한 `jobRoutes.ts:108`과 동일, #92와 합의) | 422 `soft_rule_limit_exceeded` |
-| 저장 **결과** 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0(탐지 방법 0개 운영) | `detection_methods_empty` — 422 [확정 Detector 11/02 Q-M7]: **그 상태를 만드는 모든 변경**(이 저장·활성 집합의 `retire`/`replace`/`restore`)에 같은 정의·같은 코드([model-version.md](model-version.md) 활성 집합 절 공통 검사). 코드 이름은 #92 U10(의미는 detection-decision.md(#92) 7.4 저장 검증). 활성 모델 집합은 저장 트랜잭션 안에서 운영 상태를 읽어 판단 |
+| 저장 **결과** 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0(탐지 방법 0개 운영) | `detection_methods_empty` — 422 [확정 Detector 11/02 Q-M7]: **그 상태를 만드는 모든 변경**(이 저장·활성 집합의 `retire`/`replace`/`restore`)에 같은 정의·같은 코드([model-version.md](model-version.md) 활성 집합 절 공통 검사). 코드 이름은 #92 U10(의미는 detection-decision.md(#92) 7.4 저장 검증). 활성 모델 집합은 저장 트랜잭션 안에서 운영 상태를 읽어 판단. [확정 11/28 — 구현 전] "활성 모델"은 **행 틀** 활성 모델(시계열 틀 모델은 세지 않음 — [model-version.md](model-version.md) "두 틀 — 활성 집합 규칙" 절) |
 | 내용이 현재 상태와 완전히 같음(**v2 정규 객체** 동일 ∧ 소프트룰 이름까지 동일 — 저장된 hash 문자열 비교가 아님; 현재 상태 스냅샷에 없는 규칙은 꺼짐·내장 기본 severity로, 스냅샷에 있으나 v1이거나 `methodVersion`이 없는 `hard:process-status` 항목은 내장 기본값·현재 `methodVersion`으로 해석(API 해석 규칙; v2 항목의 severity 누락은 저장 검증이 막으므로 저장된 v2 행에는 없음)한 v2 정규 객체와 비교 — r0(v1) 현재 상태 포함, #116) | 409 `rule_set_unchanged`(리비전 증가 없음, 화면은 [저장] 비활성이 정상 경로) |
 
 - 성공 응답 `200`
@@ -342,7 +342,7 @@ Status: draft
 | 프로토콜 항목 수 > **500** [확정 11/13 사용자·WebUI 수용] | 422 `protocol_rule_limit_exceeded` |
 
 - [확정 11/13 사용자·WebUI 수용] 상한 64/64(경로당 채널 64·항목당 경로 64)는 판정 경로 상한(protocol-rules.md 3.2: 단계 64·경로 64)과 같은 값이다. 판정 쪽 경로 수 상한은 거래 하나의 경로 수, 저장 쪽은 항목 하나의 허용 경로 수로 뜻이 다르지만 같은 숫자로 둔다. 스냅샷 전체 크기 상한(바이트)은 API·DB가 정한다
-- `detection_methods_empty` 정의 확장(relation-rules.md 4절): "scope 없는 방법이 1개 이상" — 켜진 내장 하드룰 중 `hard:transaction-failed`·`hard:unregistered-interface` **제외**, scope 없는 켜진 소프트룰, 활성 모델. 관계 규칙·프로토콜 규칙은 세지 않는다. 검사 위치는 v2와 같이 모든 저장 경로(룰 세트 저장·되돌리기·모델 `retire`·활성 집합 `replace`·`restore`)
+- `detection_methods_empty` 정의 확장(relation-rules.md 4절): "scope 없는 방법이 1개 이상" — 켜진 내장 하드룰 중 `hard:transaction-failed`·`hard:unregistered-interface` **제외**, scope 없는 켜진 소프트룰, 활성 모델([확정 11/28 — 구현 전] "활성 모델"은 **행 틀** 활성 모델(시계열 틀 모델은 세지 않음 — [model-version.md](model-version.md) "두 틀 — 활성 집합 규칙" 절)). 관계 규칙·프로토콜 규칙은 세지 않는다. 검사 위치는 v2와 같이 모든 저장 경로(룰 세트 저장·되돌리기·모델 `retire`·활성 집합 `replace`·`restore`)
 - `rule_set_unchanged`: 비교 기준을 **v3 정규 객체** + 소프트룰 `name`으로 바꾼다. 현재 행이 v1·v2이면 `relationRules`·`protocolRules` = `[]`, 소프트룰 `scope` = `null`, 스냅샷에 없는 내장 규칙 = 꺼짐·내장 기본 severity로 해석해 비교(v2 표의 해석 규칙과 같은 방식). 관계 규칙 재승인에서 `source.counts`만 바뀐 경우도 `rule_set_unchanged`(`source`는 비교 밖, relation-rules.md 2절)
 - 경고(저장은 허용): 응답 최상위 `warnings: [{code, ruleId, message}]`(`PUT`·`POST /api/rule-set/preview`)
   - `relation_handoff_without_precedes`: 켜진 `message_handoff`에 짝 `precedes`(같은 `from`·`to`, `scope`가 같거나 `null`, `interfaceId` 비교 제외)가 켜져 있지 않음. 문장 "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다."(relation-rules.md 4절)

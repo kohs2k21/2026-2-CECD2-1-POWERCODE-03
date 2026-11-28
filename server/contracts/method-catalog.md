@@ -1,14 +1,15 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-05T16:30:00+09:00
+Updated: 2026-11-28T18:33:11+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
-# 방법 카탈로그 계약 v2 (초안, Issue #94)
+# 방법 카탈로그 계약 v3 (초안 — Issue #94 v2 + 11/28 두 틀)
 
+- 4차 개정(사용자 11/28 결정 — 이상 ML 두 틀): ML 방법 항목에 **`frame`**(`row`|`trend`)·**`resultCode`**, 카탈로그 최상위 **`frames.<frame>`**(틀 이름·틀별 추천) 추가, `catalogVersion` `method-catalog-v3`. 기존 방법 id·값은 바꾸지 않음. 규칙은 아래 "틀·결과 코드·틀별 추천" 절, 생성 시험이 고정. `executable.window`(v12 표시용)는 그대로 두고, 시계열 실행 가능 표시 `executable.trend`는 서버 시계열 어댑터를 넣는 변경에서 추가(이번에 없음)
 - 변경 요약(#94): 대분류를 **hard / soft / ml**로 재편(사용자 11/02). 통계 SR R00~R23 **전부 삭제**·`sr:*` 폐기(호환 표만), PROCESS SR 프로토타입(#75) 미등재 유지, HR 연구 8종·`hr:process-status`·`rule` 템플릿은 카탈로그에서 제거(하드룰은 detection-decision.md(#92)가 정의). 신규 **소프트룰 등록 필드 목록 `softRuleFields[]`**(단위·타입·원천 식). ML 카탈로그(IF 등)는 `ml:` 접두로 유지, `displayName` 유지(10/22 승인)
 - 2차 개정(사용자 11/02 9.4·WebUI 대조): `softRuleFields[].sourceMissingPolicy`(원천 열 누락 시 `not_applicable` = 이상 아님 / `unavailable` = 미판정) 추가 — `elapsed_ms`의 END_TIME 누락은 **null → 그 룰은 평가하지 않음**(하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지); `displayPrecisionMode`(`fixed`/`significant`) 추가 — ratio는 유효숫자 4
 - 3차 정정(Issue #116, 11/04): 예시 JSON의 `generatedFrom`(`generatedAt` 생략, `gitRef`는 계약 근거 ref 상수)·`ml:iforest`의 `defaultsSource`(레지스트리 `IFOREST_DEFAULTS` 우선 표기)를 #111 생성물 `method-catalog.json`과 일치시키고, 카탈로그 JSON 생성(`--write`)·검증(`--check`) 명령을 생성 절에 명시
-- 계약 버전: `method-catalog-v2`; 항목 스키마 [method-catalog.schema.json](method-catalog.schema.json)(`$id` …:v2). 근거 코드 origin/dev `7f24e03`(`worker/derived_expression.py`, `backend/src/rules/ruleContract.ts`, `worker/model_adapters.py`)
+- 계약 버전: `method-catalog-v3`(11/28, v2 + 틀·결과 코드·틀별 추천); 항목 스키마 [method-catalog.schema.json](method-catalog.schema.json)(`$id` …:v3). 11/28 전에 저장된 모델 버전 `configuration_spec.catalogVersion`은 `method-catalog-v2` 그대로(감사 값, hash 입력 아님). 룰 세트 조회 응답의 `catalogVersion`은 조회 시점 카탈로그 버전이라 v3로 바뀐다. 근거 코드 origin/dev `7f24e03`(`worker/derived_expression.py`, `backend/src/rules/ruleContract.ts`, `worker/model_adapters.py`)
 - 상위 결정: 사용자 11/02 결정(Q4 소프트룰 = 등록 필드 + 임계값, Q5 통계 SR 제외, 8.2절 룰 수정 범위), Trainer·Detector 분담 합의 11/02(등록 필드 목록·편집 제약 = Trainer, 하드룰 목록·소프트룰 실행 의미론 = Detector). 절 번호는 총괄 기록 기준
 - 범위: ML 세부 방법의 시스템 내장 레지스트리 + 소프트룰이 고를 수 있는 **등록 필드**(시스템 정의, 사용자 등록 아님) + 식별자 체계. 룰 세트([rule-set.md](rule-set.md))·모델 버전([model-version.md](model-version.md))·임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md))·WebUI가 같은 식별자를 사용
 - 제외: 하드룰 내장 목록(id·조건·위험도 — Detector), 방법 어댑터 구현, 종합 판정 규칙, 사용자 정의 방법·필드 등록 API(목표 아님)
@@ -75,15 +76,37 @@ Status: draft
 - `resultSchema` 필드는 **삭제**(Detector 11/02 회신): 방법별 결과는 evidence v4 `methodResults[]`(DB `evidence_version` = `detector-evidence-v4`, detection-decision.md(#92))로 정의되며 카탈로그가 형식 이름을 들고 있지 않음. v1의 `method-result-v1` 자리 초안 폐기
 - 시간창(WINDOW) 경로 `executable.window`는 표시용 [확정 10/21 Q-J]
 
+## 틀·결과 코드·틀별 추천 [확정 11/28 — 사용자 결정(이상 ML 두 틀)]
+
+- 이상 ML은 **틀 2개로 고정**하고 틀 안에서 알고리즘만 바꾼다: `row`(행 단위 — PROCESS 판정 1행을 입력으로 행마다 점수) / `trend`(시계열 — 분 단위 집계 창을 입력). 표기 [구현 전]은 계약은 확정됐고 그 규칙을 쓰는 서버 코드(API·Detector·Trainer)는 아직 이전 규칙이라는 뜻(후속 구현 변경에서 적용)
+- 방법 항목 **`frame`**: 레지스트리가 `inputRequirements.unit`에서 **1:1로 만든다**(손으로 적지 않음) — `process_row` → `row`, `aggregated_window` → `trend`. `unit` 값이 늘어 1:1이 깨지면 이 규칙을 먼저 바꾼다(계약 변경). `executable.window`로 틀을 정하지 않는다
+- **`frame` 불변**: 한 `methodId`의 `frame`은 바꾸지 않는다. 틀을 바꾸려면 새 `methodId`. 같은 알고리즘을 두 틀에서 쓰면 항목을 따로 둔다(입력·파라미터·산출물이 다름)
+- 방법 id: 행 단위 `ml:<algo>`(기존 id 그대로, 예 `ml:iforest`·`ml:lof`), 시계열 **`ml:trend-<algo>`**(예 `ml:trend-iforest`). `ml:trend-` 접두 ⇔ `frame=trend`. 예외 1개: 연구 전용 기존 항목 `ml:eif`(`frame=trend`, 실행 불가)는 접두 없이 두고, **실행 가능해질 때 `ml:trend-eif`로 다시 등재**한다. 예외는 실행 불가(`status`가 `supported`가 아니고 `executable` 값이 모두 false)인 동안만 허용하며 새 예외는 두지 않는다
+- **`resultCode`**: 그 방법이 T일 때 방법 결과에 남기는 코드(detection-decision.md 6절). 값은 기계 규칙 **`ML_<modelKey 대문자, '-'→'_'>`** — `ml:lof` → `ML_LOF`, `ml:trend-iforest` → `ML_TREND_IFOREST`. 예외는 **`ml:iforest` = `IF_ANOMALY` 하나**(과거 판정 행·화면·집계 호환). 카탈로그 전체에서 유일 — `trend-iforest`와 `trend_iforest`처럼 같은 코드가 되는 키는 함께 둘 수 없다. 시계열 방법 코드를 쓰는 자리는 시계열 판정 계약(후속)이 정한다. 틀로 묶어 볼 때는 코드가 아니라 `methodId` → `frame`으로 묶는다
+  - 현재 코드 [구현 전]: Detector는 고정 사전(`IF_ANOMALY` 하나)으로 코드를 정한다. 레지스트리 값 읽기는 후속 구현(IF 결과 불변)
+- 최상위 **`frames`**: 키 `row`·`trend` 정확히 2개, 값 `{displayName, recommendedMethodId, recommendedParameters, evidence}`
+  - `displayName`: 틀 이름(잠정 `행 단위 모델` / `시계열 모델`). 화면 이름표는 `frames.<frame>.displayName · 방법 displayName`(서버 값만 사용, 화면 하드코딩 없음)
+  - 추천(틀마다 **0..1개**): `recommendedMethodId`·`recommendedParameters`·`evidence {reportRef, evaluationSet, metric, decidedAt}`. 셋은 함께 `null`이거나 함께 값. **지금은 모두 `null`**(실험 전 — 운영 중인 IF를 추천으로 표시하지 않음)
+  - 채울 수 있는 조건: `recommendedMethodId`가 **같은 `frame`의 방법**이고 **그 틀에서 실행 가능**(행 = `executable.process=true`, 시계열 = `executable.trend`가 생긴 뒤 true). 그래서 추천은 그 서버 어댑터를 넣는 변경과 **같은 변경**에서 채운다. `recommendedParameters`는 그 방법 `parameterSchema`를 통과. `evidence`: `reportRef` = 근거 실험 보고 참조, `evaluationSet` = 평가 세트, `metric` = 고른 지표, `decidedAt` = 결정 시각(ISO 8601). 갱신은 새 실험 보고 때만
+- 실행 가능 표시: 행 틀 = `executable.process`(그대로). `executable.window`는 v12 시간창 표시용이라 틀 판단·시계열 실행 근거가 아님. `executable.trend`는 서버 시계열 어댑터를 넣는 변경에서 추가 → **지금 시계열 틀에는 실행 가능한 방법이 없다**
+- 현재 항목의 틀
+
+| methodId | frame | resultCode | 비고 |
+|---|---|---|---|
+| `ml:iforest` | `row` | `IF_ANOMALY`(호환 예외) | 지원 |
+| `ml:minibatch_kmeans` | `row` | `ML_MINIBATCH_KMEANS` | 연구, 실행 불가 |
+| `ml:eif` | `trend` | `ML_EIF` | 연구, 실행 불가, `ml:trend-` 접두 예외(실행 가능해질 때 `ml:trend-eif`) |
+
 ## 레지스트리 인터페이스 [유지 10/21 Q-K]
 
 - 원본 `server/worker/methods/registry.py`(Trainer 소유 제안). ML 항목 = dataclass 1개 + 어댑터 프로토콜(`prepare/fit/score`). **소프트룰 필드** = 같은 모듈의 필드 dataclass(`fieldId`·AST·단위) + 값 계산 함수(`derived_expression.evaluate` 재사용) — Detector는 읽기만
 - API는 생성된 `server/contracts/method-catalog.json`(스키마 통과본)을 읽음. 생성·검증 [#111 구현]: `server/worker`에서 `python -m methods.registry --write`로 생성, `--check`로 커밋본 대조(재생성본과 다르면 종료 코드 1). **재생성본 == 커밋본**은 시험(`server/worker/tests/test_method_registry.py`)으로 고정됨. 생성이 결정적이도록 `generatedFrom.gitRef`는 실행 시점 git ref가 아니라 계약 근거 ref 상수(`7f24e03`)이며 `generatedAt`은 두지 않음
 - 확장: ML 항목 추가 = dataclass + 어댑터 + 시험; 필드 추가 = dataclass + AST 검증 시험. 사용자 등록 API 없음
+- 틀·결과 코드 [11/28]: `frame`·`resultCode`는 dataclass에 적지 않고 생성 때 `inputRequirements.unit`·`methodId`에서 만든다. 생성(`build_catalog`)이 "틀·결과 코드·틀별 추천" 절 규칙을 검사해 어기면 생성 실패. `--write`는 작업 트리의 대상 파일(보통 커밋본)이 있으면 읽어 비교하고(있는데 읽기·JSON 해석에 실패하면 쓰지 않고 종료 코드 1, 대상 파일이 없으면 비교 없이 씀), 이미 있는 `methodId`의 `frame`이 바뀌면 쓰지 않고 종료 코드 1(`frame` 키가 없는 v2 판은 같은 1:1 규칙으로 `unit`에서 읽음)
 
 ## 조회 API
 
-- `GET /api/jobs/capabilities`에 `methodCatalog` [유지 10/21]: `{catalogVersion, generatedFrom: {gitRef}, hardRules, softRuleFields, softRule, methods}`. 별도 엔드포인트 없음. 하드룰 실제 목록(id·조건·위험도)은 `GET /api/rule-set`([rule-set.md](rule-set.md))이 Detector 정의값을 투영
+- `GET /api/jobs/capabilities`에 `methodCatalog` [유지 10/21]: `{catalogVersion, generatedFrom: {gitRef}, categoryDisplayNames, hardRules, softRuleFields, softRule, frames, methods}`(생성 JSON 그대로 — `frames`·방법 `frame`·`resultCode`는 11/28 추가). 별도 엔드포인트 없음. 하드룰 실제 목록(id·조건·위험도)은 `GET /api/rule-set`([rule-set.md](rule-set.md))이 Detector 정의값을 투영
 - 기존 `models[{key, displayName, supported}]` 유지: `key` = `ml:*`의 `<model_key>`, `supported := executable.process`
 - API 구현(#128): `backend/src/ruleset/methodCatalog.ts`가 `method-catalog.json`을 읽어 `methodCatalog`로 노출하고 `models`를 `methods[]`에서 파생한다. 배포 이미지는 `backend/Dockerfile`이 같은 파일을 `/contracts`에 넣는다
 
@@ -91,7 +114,7 @@ Status: draft
 
 ```json
 {
-  "catalogVersion": "method-catalog-v2",
+  "catalogVersion": "method-catalog-v3",
   "generatedFrom": {"gitRef": "7f24e03"},
   "categoryDisplayNames": {"hard": "이상 규칙", "soft": "이상 징후 규칙", "ml": "머신러닝 모델"},
   "hardRules": {"definedBy": "detection-decision.md", "displayName": "이상 규칙", "contractVersion": "detection-decision-v1", "idPattern": "^hard:[a-z][a-z0-9_-]{1,63}$"},
@@ -130,9 +153,13 @@ Status: draft
      "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "101-102", "commit": "7f24e03"},
      "notes": "TOTAL_COUNT = 0 이면 unavailable. p95가 1e-4 미만일 수 있어 고정소수 직렬화 필수, 표시는 유효숫자 4"}
   ],
+  "frames": {
+    "row": {"displayName": "행 단위 모델", "recommendedMethodId": null, "recommendedParameters": null, "evidence": null},
+    "trend": {"displayName": "시계열 모델", "recommendedMethodId": null, "recommendedParameters": null, "evidence": null}
+  },
   "methods": [
-    {"methodId": "ml:iforest", "kind": "ml", "category": "ML", "displayName": "Isolation Forest", "status": "supported",
-     "methodVersion": "process-iforest-v1",
+    {"methodId": "ml:iforest", "kind": "ml", "category": "ML", "frame": "row", "displayName": "Isolation Forest", "status": "supported",
+     "methodVersion": "process-iforest-v1", "resultCode": "IF_ANOMALY",
      "uiTarget": {"scope": "server", "path": "server/worker/model_adapters.py",
                   "ref": "research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json"},
      "executable": {"process": true, "window": true},
@@ -151,8 +178,8 @@ Status: draft
                            "fitOperations": ["group_median", "group_centered"]},
      "sourceRef": {"path": "server/worker/model_adapters.py", "lines": "89-127", "commit": "7f24e03"},
      "canDisable": true},
-    {"methodId": "ml:minibatch_kmeans", "kind": "ml", "category": "ML", "displayName": "MiniBatch K-Means", "status": "research",
-     "methodVersion": "research-minibatch-kmeans-v8",
+    {"methodId": "ml:minibatch_kmeans", "kind": "ml", "category": "ML", "frame": "row", "displayName": "MiniBatch K-Means", "status": "research",
+     "methodVersion": "research-minibatch-kmeans-v8", "resultCode": "ML_MINIBATCH_KMEANS",
      "uiTarget": {"scope": "research", "path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py"},
      "executable": {"process": false, "window": true}, "executableReason": {"process": "server_adapter_missing"},
      "runtime": {"library": "scikit-learn"},
@@ -167,8 +194,8 @@ Status: draft
      "sourceRef": {"path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py", "lines": "35-46", "commit": "7f24e03"},
      "canDisable": true,
      "notes": "PROCESS 경로 피처 정의는 연구 인코더 기준, 서버 피처셋 호환 미확인(N13)"},
-    {"methodId": "ml:eif", "kind": "ml", "category": "ML", "displayName": "Extended Isolation Forest", "status": "research",
-     "methodVersion": "research-eif-long-term-trend",
+    {"methodId": "ml:eif", "kind": "ml", "category": "ML", "frame": "trend", "displayName": "Extended Isolation Forest", "status": "research",
+     "methodVersion": "research-eif-long-term-trend", "resultCode": "ML_EIF",
      "uiTarget": {"scope": "research", "path": "research/evaluation/long_term_trend/models.py"},
      "executable": {"process": false, "window": false}, "executableReason": {"process": "research_only", "window": "research_only"},
      "runtime": {"library": "research-bundle"},
@@ -193,6 +220,7 @@ Status: draft
 
 - 카탈로그 JSON은 `method-catalog.schema.json`을 통과. `defaults`는 자신의 `parameterSchema`를 통과. `softRuleFields[].source.ast`는 `derived_expression.validate`를 통과하고 `unit(ast)`가 필드 `unit`과 같아야 함(시험)
 - 카탈로그 JSON 생성·검증 [#111 구현]: `python -m methods.registry --write`로 생성, `--check`로 커밋본 대조. 재생성본 == 커밋본·schema 통과·`defaults`의 `parameterSchema` 통과는 `server/worker/tests/test_method_registry.py`가 고정. 위 예시 JSON은 생성물과 필드 단위로 같아야 함(#116 정정)
+- 틀·결과 코드·틀별 추천 [11/28, 같은 시험]: ① `frame` = `unit`의 1:1 대응(schema의 `unit` 값마다 틀 하나, 틀마다 `unit` 하나) ② 이미 있는 `methodId`의 `frame` 불변(시험의 고정 목록 + `--write`의 대상 파일(보통 커밋본) 대조) ③ `ml:trend-` 접두 ⇔ `frame=trend`(예외 `ml:eif`는 실행 불가인 동안만) ④ `resultCode` = 기계 규칙, 전체 유일, `IF_ANOMALY` 예외는 `ml:iforest` 하나 ⑤ `frames`는 `row`·`trend` 정확히, 틀마다 이름 1개·추천 0..1(같은 틀·그 틀에서 실행 가능·파라미터 schema 통과·근거 4필드). schema도 `frame` ↔ `unit`, `ml:trend-` → `trend`, 추천 셋의 함께 null/값을 검사
 - `executable.process=true` 항목은 `server/` 어댑터 등록 실제 존재. 연구 경로 항목은 `server/`에서 `research/` import 금지
 - `uiTarget.path`·`sourceRef.path`는 저장소에 실제 존재
 - 이 초안 검증(실행): 위 예시 JSON을 jsonschema(Draft 2020-12)로 검증 — 결과는 #94 보고 참조
@@ -203,5 +231,6 @@ Status: draft
 - 확정(사용자 11/03, #92 U1): 대분류 키 `hard/soft/ml`·식별자 접두 `hard:`/`soft:`/`ml:` — 11/02 세션 합의안 승인(rule-set.md Q-R7·model-version.md Q-M4 같은 질문; 표기 갱신 #106)
 - 유지(10/21): Q-H IF 기본값 / Q-I `supported := executable.process` / Q-J window 표시만 / Q-K 레지스트리 + 생성 JSON / Q3-1 저장 거부 / N13 KMeans 피처셋 대응 미확정 / N18 `k` 2..64
 - 확정(11/02 9.4): `elapsed_ms`의 END_TIME 누락은 이상 아님(값 null, 평가 안 함) — `sourceMissingPolicy`
+- 확정(사용자 11/28, 이상 ML 두 틀): 방법 `frame`(`unit`에서 1:1, 불변)·`resultCode`(`ML_<KEY>`, 예외 `IF_ANOMALY`), 시계열 id `ml:trend-<algo>`, 최상위 `frames`(이름 잠정·추천 0..1, 지금 `null`), `catalogVersion` v3. `executable.trend`·시계열 항목 추가는 서버 시계열 어댑터 변경에서
 - 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께) / Q-C3 `displayPrecisionMode` 기본값 `fixed`·ratio만 `significant`(제안) vs 전 필드 `significant`
 - 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92, #112 정정) — 1차 목록 U3(11/03) 2개 → 사용자 11/04 확정 4개(#116): `hard:process-status`(`process-status-hr-v2`)·`hard:negative-duration`(`negative-duration-v1`)·`hard:success-with-error`(`success-with-error-v1`)·`hard:count-conservation`(`count-conservation-v1`) — 조건·기본 위험도는 정본 4.3(#112))

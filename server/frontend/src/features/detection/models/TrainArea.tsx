@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { paths, withSearchParam, workStepCount } from "@/app/routes";
+import { paths, urlOptions, withSearchParam, workStepCount } from "@/app/routes";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { StepLinks } from "@/features/detection/components/StepLinks";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { useSourcesQuery } from "@/features/operations/data/inputs";
 import { numberText } from "@/features/operations/format";
-import { useUrlStep } from "@/hooks/useUrlState";
+import { useUrlOption, useUrlStep } from "@/hooks/useUrlState";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { forgetJobRequestKey, jobRequestKey } from "@/services/api/job-idempotency";
 import { createPipelineJob, type PipelineJob } from "@/services/api/pipeline.api";
@@ -20,6 +20,7 @@ import { FeatureStep, useFeatureSets } from "./FeatureStep";
 import { ModelStep } from "./ModelStep";
 import { DAY_MINUTES, minuteDay } from "./period";
 import { PeriodStep } from "./PeriodStep";
+import { frameLabels, frameNotes, frameText, frameTrainable, methodsOfFrame, notTrainableReason } from "./modelFrames";
 import { draftFingerprint, freshDraft, jobBlocksRequest, modelKeyOf, readTrainDraft, readinessIssues, selectedMethod, trainRequest, writeTrainDraft, type PeriodDraft, type TrainDraft } from "./trainDraft";
 import { VERSIONS_QUERY, useCapabilities, useTrainJob } from "./useModels";
 import { detectionSections, sectionReturnTo } from "../detectionToc";
@@ -57,7 +58,11 @@ const EMPTY_DRAFT = freshDraft();
 const periodLabel = (period: PeriodDraft) =>
   period.query ? `${minuteDay(period.query[0])} ~ ${minuteDay(period.query[1] - DAY_MINUTES)} · 제외 ${period.excluded.length}구간` : "—";
 
-/** 새 학습(사용자 9.6·9.8): 버전 목록 아래 같은 화면, 머리글 버튼 없음. 단계는 주소 `step`, 접수한 작업은 주소 `job`. */
+/**
+ * 새 학습(사용자 9.6·9.8): 틀 구역 아래 같은 화면, 머리글 버튼 없음. 단계는 주소 `step`, 접수한 작업은 주소 `job`.
+ * 틀은 주소 `frame`(틀 구역의 [새 학습]이 정함, 없으면 행 단위 모델). 3단계 알고리즘 표는 그 틀의 것만 보이고,
+ * 그 틀에 학습할 수 있는 알고리즘이 없으면 단계 대신 카탈로그 사유를 보인다(models-ui.md 틀 절). 학습 요청 본문은 그대로(modelKey).
+ */
 export const TrainArea = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -65,7 +70,11 @@ export const TrainArea = () => {
   const { user } = useAuthSession();
   const capabilities = useCapabilities();
   const sources = useSourcesQuery();
-  const { value: step, hrefFor } = useUrlStep(workStepCount.train);
+  // 단계·틀 이동은 새 학습 영역 해시를 유지한다(영역에 머묾 — [새 학습]·목차 `새 학습`과 같은 해시).
+  const { value: step, hrefFor } = useUrlStep(workStepCount.train, "step", { hash: detectionSections.modelsTrain.id });
+  const frameOption = useUrlOption("frame", urlOptions.modelFrame, { hash: detectionSections.modelsTrain.id });
+  const frame = frameOption.value;
+  const other = frame === "row" ? "trend" : "row";
   const draft = useDraftStore((state) => state.drafts[paths.detectionModels]?.value as TrainDraft | undefined) ?? EMPTY_DRAFT;
   const [requesting, setRequesting] = useState(false);
   const area = useRef<HTMLDivElement>(null);
@@ -78,7 +87,8 @@ export const TrainArea = () => {
 
   const sourceId = sources.data?.[0]?.id ?? "";
   const featureSets = useFeatureSets(sourceId);
-  const methods = capabilities.data?.methodCatalog.methods ?? [];
+  const methods = methodsOfFrame(capabilities.data?.methodCatalog.methods, frame);
+  const trainable = frameTrainable(methods);
   const method = selectedMethod(methods, draft.modelKey);
   const featureSet = featureSets.data?.items.find((item) => item.id === draft.featureSetId) ?? null;
   const exclusionSupported = capabilities.data?.training?.excludedIntervals === true;
@@ -94,7 +104,7 @@ export const TrainArea = () => {
   const hasStep = params.has("step");
   useEffect(() => {
     if (hasStep) area.current?.scrollIntoView?.({ block: "start" });
-  }, [hasStep, shownStep]);
+  }, [hasStep, shownStep, frame]);
   // 주소의 `job`은 초안의 작업을 따른다(새로고침해도 이어 보도록). 응답이 어느 인스턴스에 오든 지금 보이는 화면이 옮긴다.
   useEffect(() => {
     if (draft.jobId && urlJob !== draft.jobId) navigate(location.pathname + withSearchParam(location.search, "job", draft.jobId), { replace: true, state: location.state });
@@ -160,12 +170,28 @@ export const TrainArea = () => {
     }
   };
 
-  const ready = capabilities.data && sources.data && sourceId;
+  const ready = capabilities.data && sources.data && sourceId && trainable;
   return (
     <div ref={area}>
       <SectionCard id={detectionSections.modelsTrain.id} title={detectionSections.modelsTrain.label}>
         {jobId && <TrainJobStatus jobId={jobId} returnTo={sectionReturnTo(location, detectionSections.modelsTrain)} />}
-        <StepLinks steps={STEPS} step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm" data-train-frame={frame}>
+          <span>{frameText.trainFrame}: <strong className="font-semibold">{frameLabels[frame]}</strong></span>
+          <span className="text-muted-foreground">{frameNotes[frame]}</span>
+          <Link className="text-link underline-offset-2 hover:underline" to={frameOption.hrefFor(other)}>{frameText.switchTo(other)}</Link>
+        </p>
+        {capabilities.data && !trainable && (
+          <Alert role="status" data-train-blocked={frame}>
+            <AlertDescription>
+              <p>{frameText.blocked(frame)}</p>
+              <ul className="mt-1 grid gap-0.5">
+                {methods.map((item) => <li key={item.methodId}>{item.displayName} · <span className="font-mono">{notTrainableReason(item)}</span></li>)}
+                {methods.length === 0 && <li>{frameText.noAlgorithm}</li>}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        {(!capabilities.data || trainable) && <StepLinks steps={STEPS} step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />}
         {(capabilities.isPending || sources.isPending) && <LoadingState>학습 조건 조회 중…</LoadingState>}
         {capabilities.isError && <ErrorState title={`방법 카탈로그 조회 실패 · ${errorCode(capabilities.error)}`} onRetry={() => void capabilities.refetch()} retryLabel="다시 조회" />}
         {sources.isError && <ErrorState title={`출처 조회 실패 · ${errorCode(sources.error)}`} onRetry={() => void sources.refetch()} retryLabel="다시 조회" />}

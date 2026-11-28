@@ -79,6 +79,21 @@ assert.deepEqual([item.kind, item.stage, item.signal, item.status, item.anomalyS
 assert.equal(api.parseItem({ ...raw, status: "done", occurredAt: "not a time" }).status, null);
 assert.equal(api.parseItem({ ...raw, occurredAt: "not a time" }).occurredAt, null);
 assert.throws(() => api.parseItem({ ...raw, kind: "window" }), /판정 응답을 확인할 수 없습니다/);
+// 모델 이름표(analysis-ui.md mlModels 추가 필드): 없으면 []. 키가 없는 항목은 버리고, 모르는 틀·이름은 null(지어내지 않음).
+assert.deepEqual(item.mlModels, [], "older responses without the field");
+assert.deepEqual(api.parseItem({ ...raw, mlModels: [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "x", methodName: "", frame: "window" }, { frame: "row" }, "x"] }).mlModels,
+  [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "x", methodName: null, frame: null }]);
+{
+  const labels = await import("../src/features/analysis/labels.ts");
+  const models = [{ modelKey: "iforest", methodName: "Isolation Forest", frame: "row" }, { modelKey: "eif", methodName: "Extended Isolation Forest", frame: "trend" }];
+  assert.equal(labels.methodLabel("ml:iforest", models), "행 단위 모델 · Isolation Forest");
+  assert.equal(labels.methodLabel("ml:eif", models), "시계열 모델 · Extended Isolation Forest");
+  assert.equal(labels.methodLabel("ml:lof", models), "머신러닝 모델(lof)", "no label → current name");
+  assert.equal(labels.methodLabel("ml:iforest"), "머신러닝 모델(iforest)");
+  assert.deepEqual(labels.methodLabels(["ml:iforest", "hard:process-status"], models), ["행 단위 모델 · Isolation Forest", "이상 규칙(상태가 S가 아님)"]);
+  assert.equal(labels.adminLinkLabels.model("7f3a9c21-0000", "행 단위 모델 · Isolation Forest"), "당시 행 단위 모델 · Isolation Forest 7f3a9c21 보기");
+  assert.equal(labels.adminLinkLabels.model("7f3a9c21-0000"), "당시 머신러닝 모델 7f3a9c21 보기");
+}
 const listBody = { observedAt: "2026-11-03T00:00:00Z", counts: { all: 3, anomaly: 1, in_progress: 0, undetermined: 1, failed_replaced: 1 },
   total: 3, page: 1, pageSize: 10, latestDecidedAt: null, latestEventId: "42", items: [raw] };
 const list = api.parseList(listBody);

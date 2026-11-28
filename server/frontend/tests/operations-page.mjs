@@ -199,6 +199,13 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(app.row("soft:total_count-2").includes("적용됨 · 첫 실행 대기"));
   assert.equal(app.row("hard:count-conservation"), "", "rules that are off are not listed");
   assert.ok(app.row("ml:iforest").includes("4d2f7c10 · V4") && app.row("ml:iforest").includes("기한 초과 1"));
+  // 틀 2자리 표(operations-ui.md): 자리 · 모델 열, 운영 중인 행 단위 모델 + 비어 있는 시계열 자리(카탈로그 사유 그대로). 교체 규칙은 그대로라고 표 설명에 적는다.
+  assert.ok(app.row("ml:iforest").startsWith("행 단위 모델Isolation Forest4d2f7c10 · V4"), app.row("ml:iforest"));
+  const emptySlot = app.renderer.root.findAll((node) => node.type === "tr" && node.props["data-empty-slot"] === "trend")[0];
+  assert.equal(text(emptySlot.children), "시계열 모델없음운영 중인 시계열 모델이 없습니다 · 학습할 수 있는 알고리즘 없음(Extended Isolation Forest research_only)");
+  assert.ok(app.renderer.root.findAll((node) => node.type === "th").some((node) => text(node.children) === "자리 · 모델"));
+  assert.ok(app.shown().includes("틀마다 자리로 묶어 보임 · 같은 알고리즘이면 교체, 다른 알고리즘은 추가 운영(틀 안 교체는 아직 없음)"));
+  assert.ok(!app.shown().includes("모델 종류마다 운영 버전 1개"));
   assert.ok(app.shown().includes("판정 없이 실패 4건 · 최근 1시간 · 작업 실패 1 · 룰 세트 읽기 실패 1 · operational_state_unavailable 2 · 방법별 집계와 별도"));
   assert.ok(app.shown().includes("2a91e6d7 · V3 → 4d2f7c10 · V4"));
   assert.ok(!/정책|deadlineMs|category-k-of-n/.test(app.shown()), "the detection policy is not shown");
@@ -285,6 +292,12 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   });
   const app = await mount("/detection/operations/replace");
   await wait(() => app.shown().includes("현재 운영: 4d2f7c10 · V4 · Isolation Forest"), "step 1");
+  // 자리(틀) 열만 더하고 운영 변화 규칙은 그대로
+  await wait(() => app.renderer.root.findAll((node) => node.type === "td" && node.props["data-frame"] === "row").length > 0, "slot column");
+  assert.ok(app.renderer.root.findAll((node) => node.type === "th").some((node) => text(node.children) === "자리"));
+  const slots = app.renderer.root.findAll((node) => node.type === "td" && node.props["data-frame"]).map((node) => [node.props["data-frame"], text(node.children)]);
+  assert.ok(slots.every(([frame, label]) => label === { row: "행 단위 모델", trend: "시계열 모델" }[frame]), JSON.stringify(slots));
+  assert.equal(slots.length, 3, "one slot cell per version");
   assert.equal(app.button("다음 · 비교 확인").props.disabled, true, "nothing selected");
   await act(async () => app.renderer.root.findByType(RadioGroup).props.onValueChange(V_EXP7));
   await app.go("다음 · 비교 확인");

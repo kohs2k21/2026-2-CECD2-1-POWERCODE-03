@@ -53,6 +53,25 @@ export const modelKeyOf = (method: Pick<MlMethod, 'methodId'>) => method.methodI
 export const mlMethod = (modelKey: unknown) =>
   typeof modelKey === 'string' ? ML_METHODS.find((method) => modelKeyOf(method) === modelKey) : undefined;
 
+/**
+ * 머신러닝 모델의 틀(models-ui.md 틀 절): 카탈로그 `inputRequirements.unit`으로만 정한다(`process_row` → row, `aggregated_window` → trend).
+ * `executable.window`는 예전 시간창 경로 표시용이라 쓰지 않는다. 카탈로그에 없거나 unit이 다르면 null.
+ */
+export type ModelFrame = 'row' | 'trend';
+export const frameOfMethod = (method: Pick<MlMethod, 'inputRequirements'> | undefined): ModelFrame | null => {
+  const unit = method?.inputRequirements?.unit;
+  return unit === 'process_row' ? 'row' : unit === 'aggregated_window' ? 'trend' : null;
+};
+/**
+ * 응답에 덧붙이는 모델 이름표(analysis-ui.md `mlModels`, operations-ui.md `models[]`): 키 그대로 + 카탈로그 표시 이름·틀.
+ * 카탈로그에 없는 키(옛 데이터 등)는 methodName·frame을 null로 둔다(지어내지 않음).
+ */
+export type ModelLabel = { modelKey: string; methodName: string | null; frame: ModelFrame | null };
+export const modelLabel = (modelKey: string): ModelLabel => {
+  const method = mlMethod(modelKey);
+  return { modelKey, methodName: method?.displayName ?? null, frame: frameOfMethod(method) };
+};
+
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 /** 요청의 `parameters`를 기본값 위에 얹어 `parameterSchema` 검사. worker `methods.registry.validate_parameters`와 같은 부분집합이다. */
 export function parametersValid(method: MlMethod, parameters: unknown): boolean {

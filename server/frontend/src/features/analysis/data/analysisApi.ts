@@ -1,4 +1,5 @@
 import { HttpError, httpClient } from "@/services/api/client";
+import { parseModelLabel, type ModelLabel } from "@/features/detection/models/modelFrames";
 import type { EvidenceGroup } from "./evidence";
 
 /**
@@ -158,6 +159,8 @@ export type DecisionItem = {
   unread: boolean | null;
   /** 이상 원인 요약(목록 응답만, 서버가 저장 evidence에서 옮김. 이상 신호가 아니거나 상세 응답이면 빈 배열). */
   causes: DecisionCause[];
+  /** 판정이 쓴 머신러닝 모델 이름표(analysis-ui.md `mlModels`, 서버가 카탈로그로 채움). 없는 서버·옛 응답이면 빈 배열(화면은 키 표시 유지). */
+  mlModels: ModelLabel[];
 };
 /** 목록 행 이상 원인 한 건(analysis-ui.md `causes`). 해당 없는 값은 null. */
 export type DecisionCause = {
@@ -278,6 +281,7 @@ export const parseItem = (value: unknown): DecisionItem => {
     workflowState: oneOf(value.workflowState, workflowStates) ?? "detected",
     unread: typeof value.unread === "boolean" ? value.unread : null,
     causes: Array.isArray(value.causes) ? value.causes.flatMap(parseCause) : [],
+    mlModels: Array.isArray(value.mlModels) ? value.mlModels.flatMap((label) => parseModelLabel(label) ?? []) : [],
   };
 };
 /** 원인 한 건: 대분류가 틀리면 버림, 나머지 값은 형식이 맞을 때만. */

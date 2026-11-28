@@ -1,6 +1,7 @@
 import { paths, type DetectionMenuId } from "@/app/routes";
 import { HARD_TERM, PROTOCOL_TERM, RELATION_TERM, SOFT_TERM } from "./rules/ruleDraft";
 import { RESPONSE_CODE_TERM } from "./rules/responsecodes/responseCodeLabels";
+import { frameLabels, type ModelFrame } from "./models/modelFrames";
 
 export type DetectionSection = { id: string; label: string };
 
@@ -19,18 +20,21 @@ export const detectionSections = {
   rulesResponseCodes: { id: "rules-response-codes", label: RESPONSE_CODE_TERM },
   rulesCandidates: { id: "rules-candidates", label: "규칙 추천" },
   rulesHistory: { id: "rules-history", label: "변경 기록" },
-  modelsVersions: { id: "models-versions", label: "버전" },
+  modelsRow: { id: "models-row", label: frameLabels.row },
+  modelsTrend: { id: "models-trend", label: frameLabels.trend },
   modelsTrain: { id: "models-train", label: "새 학습" },
   evaluationsList: { id: "evaluations-list", label: "비교 평가" },
   evaluationsNew: { id: "evaluations-new", label: "새 비교 평가" },
 } as const satisfies Record<string, DetectionSection>;
 
 const s = detectionSections;
+/** 머신러닝 모델 화면 틀 구역의 영역 id(목차·해시·returnTo). */
+export const frameSectionIds: Record<ModelFrame, string> = { row: s.modelsRow.id, trend: s.modelsTrend.id };
 /** 메뉴별 목차(화면 위→아래 순서). 조건부 영역(응답 코드 등)이 화면에 없으면 해당 항목을 눌러도 아무 일 없다. */
 export const detectionToc: Record<DetectionMenuId, readonly DetectionSection[]> = {
   operations: [s.operationsStatus, s.operationsHistory, s.operationsJobs],
   rules: [s.rulesHard, s.rulesSoft, s.rulesRelation, s.rulesProtocols, s.rulesResponseCodes, s.rulesCandidates, s.rulesHistory],
-  models: [s.modelsVersions, s.modelsTrain],
+  models: [s.modelsRow, s.modelsTrend, s.modelsTrain],
   evaluations: [s.evaluationsList, s.evaluationsNew],
 };
 

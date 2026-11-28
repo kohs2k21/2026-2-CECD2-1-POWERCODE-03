@@ -32,7 +32,7 @@ export const timelineEntries = (detail: DecisionDetail, history: InterimHistory 
     switch (record.kind) {
       case "first_anomaly": {
         // 와이어프레임 `중간 판정 · 근거 이상 규칙(상태가 S가 아님)`: 표시 이름, 방법 ID는 툴팁
-        const methods = basisOf(record), names = methodLabels(methods);
+        const methods = basisOf(record), names = methodLabels(methods, detail.mlModels);
         return {
           key: record.id,
           at: record.createdAt,
@@ -47,7 +47,7 @@ export const timelineEntries = (detail: DecisionDetail, history: InterimHistory 
         const previous = items.slice(0, index).reverse().find((item) => item.attemptNo === record.attemptNo && item.kind !== "superseded");
         const before = new Set(basisOf(previous));
         const added = previous && before.size ? basisOf(record).filter((method) => !before.has(method)) : [];
-        const names = methodLabels(added);
+        const names = methodLabels(added, detail.mlModels);
         return {
           key: record.id,
           at: record.createdAt,

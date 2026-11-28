@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { DECISION_TREND_SQL } from './operationalReport.js';
+import { modelLabel } from '../ruleset/methodCatalog.js';
 
 /**
  * 운영 현황(/operations) 읽기 전용 집계(operations-ui.md).
@@ -9,6 +10,11 @@ import { DECISION_TREND_SQL } from './operationalReport.js';
 type Queryable = Pick<Pool, 'query'>;
 
 export const OPERATIONS_MAX_AGE_MS = 60_000;
+/** 운영 모델 항목에 카탈로그 표시 이름·틀을 덧붙인다(operations-ui.md 추가 필드 `methodName`·`frame`, 모르면 null). 기존 키는 그대로. */
+const withModelLabels = (models: unknown) => (Array.isArray(models) ? models : []).map((model: { modelKey: string }) => {
+  const { methodName, frame } = modelLabel(model.modelKey);
+  return { ...model, methodName, frame };
+});
 export const OPERATIONS_WINDOW = '1h';
 export const TREND_TIMEZONE = 'Asia/Seoul';
 /** 원천 시각에 시간대가 없고 원천 설정이 검증 전일 때 Collector가 쓰는 가정(collector-metrics.md 1.1·3.4). */
@@ -90,10 +96,10 @@ export async function readOverview(db: Queryable) {
     activeConfiguration: active?.configVersionId ? {
       configVersionId: active.configVersionId, revision: num(active.revision), changedAt: iso(active.changedAt),
       sourceId: active.sourceId, detectionMode: active.detectionMode ?? null, ruleCount: active.ruleCount,
-      ruleSeverityCounts: active.ruleSeverityCounts, models: active.models,
+      ruleSeverityCounts: active.ruleSeverityCounts, models: withModelLabels(active.models),
     } : null,
     operationalState: state ? { ruleSetRevision: num(state.ruleSetRevision), activeModelSetRevision: num(state.activeModelSetRevision),
-      models: state.models } : null,
+      models: withModelLabels(state.models) } : null,
   };
   assign(overview, 'activeConfigurationVersion', active?.configVersionId ?? null);
   assign(overview, 'endToEndLatencyMs', num(row.endToEndP50Ms));

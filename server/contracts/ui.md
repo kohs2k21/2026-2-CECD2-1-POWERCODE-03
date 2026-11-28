@@ -1,5 +1,5 @@
 Created: 2026-10-08T12:53:45+09:00
-Updated: 2026-11-21T03:00:00+09:00
+Updated: 2026-11-28T18:00:00+09:00
 Author: frontend_lead · Claude Code(#100)
 Status: current
 
@@ -28,6 +28,7 @@ Status: current
 - 운영 이상 이벤트: 목록·알림 패널에 유지; 이벤트마다 토스트 발행 금지
 - 조회 상태: 최초 로딩 / 빈 응답 / 검색 결과 없음 / 실패 / 연결 끊김 구분; 이전 데이터의 존재를 정상 연결로 표시 금지
 - 레이어: 모달·드래그 미리보기·토스트 토큰 분리; `--z-dialog` < `--z-drag` < `--z-toast` < `--z-tooltip`
+- 머신러닝 모델 틀 용어: 두 틀 `행 단위 모델`(PROCESS 한 행) / `시계열 모델`(시간 구간 집계). 틀은 방법 카탈로그 `inputRequirements.unit`(`process_row` → `row`, `aggregated_window` → `trend`)으로만 정한다. 모델 이름표는 `<틀 이름> · <알고리즘 표시 이름>`(예: `행 단위 모델 · Isolation Forest`), 틀·이름을 모르면 지금 표시(키) 그대로. 틀 이름·틀 문구는 화면 한 곳(`features/detection/models/modelFrames.ts`)에만 두고 서버 응답에는 틀 이름 문자열을 넣지 않는다(서버는 `frame` 값만). 메뉴 이름 `머신러닝 모델`·근거 구분·대분류 이름 `머신러닝 모델`은 그대로. 자세한 화면 규칙은 [models-ui.md](models-ui.md) 틀 절
 - 아이콘: Tabler; 위젯 배치: react-grid-layout. 단순 효과 CSS / 복합 전환 Motion, reduced-motion 준수
 
 ## 움직임

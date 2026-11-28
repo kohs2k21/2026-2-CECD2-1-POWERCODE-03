@@ -338,17 +338,26 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const card = app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
   return [id, card ? text(card.findByType("h2").children) : null];
 });
-// 3) 버전 목록: 기본 탭 현재 운영 버전, 룰 전용 행 제외, 머리글 '새 학습' 버튼 없음
+// 3) 틀 구역(models-ui.md 틀 절): 행 단위 모델 → 시계열 모델 구역. 틀은 카탈로그 inputRequirements.unit, 구역마다 현재 운영 · 알고리즘 줄 · 버전 목록 · [새 학습]
 {
   routes = baseRoutes();
   const app = await mount();
-  await wait(() => app.shown().includes("Isolation Forest"), "active versions");
+  await wait(() => app.shown().includes(V2.slice(0, 8)), "frame sections");
   const shown = app.shown();
-  assert.ok(shown.includes("현재 운영 버전") && shown.includes("전체 버전"));
-  assert.deepEqual(tocSections(app, "models"), [["models-versions", "버전"], ["models-train", "새 학습"]], "TOC targets carry the area titles");
-  assert.ok(shown.includes(V1.slice(0, 8)), "the active version is listed");
-  assert.ok(!shown.includes(V2.slice(0, 8)), "versions out of operation stay on the other tab");
-  assert.ok(shown.includes("운영 중") && shown.includes("지원 · supported") && shown.includes("평가 완료"));
+  assert.deepEqual(tocSections(app, "models"), [["models-row", "행 단위 모델"], ["models-trend", "시계열 모델"], ["models-train", "새 학습"]], "TOC targets carry the frame titles");
+  const section = (id) => app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
+  const row = text(section("models-row").children), trend = text(section("models-trend").children);
+  assert.ok(row.includes(`현재 운영: Isolation Forest · ${V1.slice(0, 8)}`), "row frame head names the operating algorithm and version");
+  assert.ok(row.includes("알고리즘 2개 · 학습 가능 1개 · Isolation Forest, MiniBatch K-Means(연구 중)"), "algorithm line from the catalog");
+  assert.ok(row.includes(V1.slice(0, 8)) && row.includes(V2.slice(0, 8)), "both process_row versions sit in the row frame (executable.window is not a frame)");
+  assert.ok(row.indexOf(V1.slice(0, 8), row.indexOf("생성")) < row.indexOf(V2.slice(0, 8), row.indexOf("생성")), "the operating version comes first");
+  assert.ok(!shown.includes(V3.slice(0, 8)), "rule-only configurations are not model versions");
+  assert.ok(trend.includes("현재 운영: 없음"), "an empty trend slot says so");
+  assert.ok(trend.includes("알고리즘 1개 · 학습 가능 0개 · Extended Isolation Forest(연구 중)"));
+  assert.ok(trend.includes("새 학습 불가 · Extended Isolation Forest research_only"), "catalog reason code as is");
+  assert.ok(trend.includes("시계열 모델의 학습된 버전이 없습니다."));
+  assert.ok(!trend.includes(V1.slice(0, 8)) && !trend.includes(V2.slice(0, 8)));
+  assert.ok(shown.includes("운영 중") && shown.includes("지원 · supported") && shown.includes("평가 완료") && shown.includes("연구 중 · research") && shown.includes("평가 전"));
   for (const title of ["버전", "모델", "상태", "운영", "입력 변수", "학습 파라미터", "판정선", "최근 평가", "생성"]) {
     assert.ok(app.renderer.root.findAll((node) => node.type === "th").some((node) => text(node.children) === title), `${title} column`);
   }
@@ -357,106 +366,120 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(!shown.includes("contamination=auto"), "fixed values stay in the detail");
   assert.ok(shown.includes("0.6585"), "threshold is shortened in the list");
   assert.ok(!shown.includes("0.65850"), "the full value stays in the detail");
-  assert.equal(new URLSearchParams(calls("GET", "/api/configurations").slice(-1)[0].search).get("active"), "true", "the server filters the active tab");
-  const current = app.renderer.root.findAll((node) => node.type === "a" && node.props["aria-current"] === "page").map((node) => text(node.children));
-  assert.ok(current.includes("현재 운영 버전"), "URL tab marks the default");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children).includes("새 학습")).length, 0, "no header button");
-  assert.ok(app.renderer.root.findAll((node) => node.type === "h2" && text(node.children) === "새 학습").length === 1, "the training area sits on the same screen");
-  // 버전 행 → 상세: 뒤로가기가 버전 영역으로 돌아온다(쿼리 유지)
-  assert.deepEqual(routerLinks(app, "/detection/models/").map((node) => [node.props.to, node.props.state.returnTo]), [[`/detection/models/${V1}`, "/detection/models#models-versions"]]);
-  await app.go("전체 버전");
-  await wait(() => app.shown().includes(V2.slice(0, 8)), "all versions");
-  assert.equal(search(app), "?tab=all");
-  assert.equal(routerLinks(app, "/detection/models/")[0].props.state.returnTo, "/detection/models?tab=all#models-versions", "the tab stays in the return address");
-  assert.ok(app.shown().includes("연구 중 · research"));
-  assert.ok(!app.shown().includes(V3.slice(0, 8)), "rule-only configurations are not model versions");
-  assert.ok(app.shown().includes("평가 전"));
-  assert.equal(new URLSearchParams(calls("GET", "/api/configurations").slice(-1)[0].search).get("active"), null, "all versions has no filter");
   const researchRow = app.renderer.root.findAll((node) => node.type === "tr" && text(node.children).includes(V2.slice(0, 8)))[0];
   assert.equal(text(researchRow.children).match(/없음/g).length, 3, "rows without stored values say so in all three columns");
+  assert.deepEqual(calls("GET", "/api/configurations").slice(-2).map((call) => new URLSearchParams(call.search).get("active")).sort(), [null, "true"], "current = server active filter, list = all versions");
+  // [새 학습]: 학습할 수 있는 틀은 그 틀로 새 학습을 여는 링크, 막힌 틀은 비활성 버튼. 버전 목록의 탭(현재 운영 버전/전체 버전)은 없다.
+  const rowTrain = app.renderer.root.findAll((node) => node.type === "a" && node.props["data-new-train"] === "row")[0];
+  assert.equal(rowTrain.props.href, "/detection/models?frame=row&step=1#models-train", "same hash move as the TOC item");
+  assert.ok(!app.renderer.root.findAll((node) => node.props.id === "models-unknown").length, "no unknown-frame group without such versions");
+  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "더 보기").length, 0, "no more button on the last page");
+  const trendTrain = app.renderer.root.findAll((node) => node.type === "button" && node.props["data-new-train"] === "trend")[0];
+  assert.equal(trendTrain.props.disabled, true, "no trainable trend algorithm");
+  assert.ok(!shown.includes("전체 버전"), "the version tabs are replaced by the frame heads");
+  assert.ok(app.renderer.root.findAll((node) => node.type === "h2" && text(node.children) === "새 학습").length === 1, "the training area sits on the same screen");
+  // 버전 행 → 상세: 뒤로가기가 그 틀 구역으로 돌아온다
+  assert.ok(routerLinks(app, `/detection/models/${V2}`).every((node) => node.props.state.returnTo === "/detection/models#models-row"));
+  await act(async () => { await app.router.navigate(rowTrain.props.href); });
+  await wait(() => search(app) === "?frame=row&step=1" && app.shown().includes("학습할 틀: 행 단위 모델"), "row new training");
   await app.cleanup();
 }
 
-// 4) 현재 운영 버전은 서버 필터 한 번으로 읽는다. 비면 빈 문구, 실패는 코드 그대로
+// 4) 현재 운영은 서버 필터 한 번, 목록은 전체 버전 첫 쪽 한 번. 비면 빈 문구, 실패는 코드 그대로
 {
   const before = calls("GET", "/api/configurations").length;
   routes = baseRoutes();
   let app = await mount();
   await wait(() => app.shown().includes(V1.slice(0, 8)), "active version");
   await tick(30);
-  assert.equal(calls("GET", "/api/configurations").length - before, 1, "one request, no page scan");
+  assert.equal(calls("GET", "/api/configurations").length - before, 2, "two requests shared by both frames, no page scan");
   await app.cleanup();
 
   routes = baseRoutes({ "GET /api/configurations": () => json(page([])) });
   app = await mount();
-  await wait(() => app.shown().includes("운영 중인 버전이 없습니다."), "empty active tab");
+  await wait(() => app.shown().includes("행 단위 모델의 학습된 버전이 없습니다."), "empty row frame");
+  assert.ok(app.shown().includes("현재 운영: 없음"));
   await app.cleanup();
 
   routes = baseRoutes({ "GET /api/configurations": () => json({ code: "configuration_storage_unavailable" }, 503) });
   app = await mount();
   await wait(() => app.shown().includes("버전 조회 실패 · configuration_storage_unavailable"), "error shown");
-  assert.ok(!app.shown().includes("운영 중인 버전이 없습니다."), "an error never looks like an empty list");
+  assert.ok(!app.shown().includes("학습된 버전이 없습니다."), "an error never looks like an empty list");
+  assert.ok(!app.shown().includes("현재 운영: 없음"), "an error never looks like an empty slot");
   routes = baseRoutes();
   await app.click("다시 조회");
   await wait(() => app.shown().includes(V1.slice(0, 8)), "retry");
+  await app.cleanup();
+
+  // 카탈로그 조회 실패: 틀을 정할 수 없으니 구역 머리·목록을 그리지 않고 실패를 그대로
+  routes = baseRoutes({ "GET /api/jobs/capabilities": () => json({ code: "catalog_unavailable" }, 503) });
+  app = await mount();
+  await wait(() => app.shown().includes("방법 카탈로그 조회 실패 · catalog_unavailable"), "catalog error");
+  assert.ok(!app.shown().includes("현재 운영:") && !app.shown().includes(V1.slice(0, 8)), "no frame guess without the catalog");
+  await app.cleanup();
+}
+
+// 4-0) 카탈로그에 없는 키의 버전: `틀 미확인` 묶음(그런 버전이 있을 때만, 목차 밖). 그 버전이 운영 중이어도 틀 구역 머리는 그 틀만 말한다
+{
+  const UNKNOWN = "abcdabcd-1111-4111-8111-111111111111";
+  const unknown = version(UNKNOWN, { modelKey: "retired_model", active: true, displayName: "옛 모델" });
+  routes = baseRoutes({ "GET /api/configurations": (target) => json(page(target.searchParams.get("active") === "true" ? [active, unknown] : [active, unknown, research])) });
+  const app = await mount();
+  await wait(() => app.shown().includes("틀 미확인"), "unknown-frame group");
+  const card = text(app.renderer.root.findAll((node) => node.props.id === "models-unknown" && node.props["data-slot"] === "section-card")[0].children);
+  assert.ok(card.startsWith("틀 미확인") && card.includes(`현재 운영: retired_model · ${UNKNOWN.slice(0, 8)} · 옛 모델`), card);
+  assert.ok(!card.includes("새 학습") && !card.includes("알고리즘"), "no training or algorithm line for an unknown frame");
+  const row = text(app.renderer.root.findAll((node) => node.props.id === "models-row" && node.props["data-slot"] === "section-card")[0].children);
+  assert.ok(row.includes(`현재 운영: Isolation Forest · ${V1.slice(0, 8)}`) && !row.includes(UNKNOWN.slice(0, 8)), "the row frame head lists only its own frame");
+  assert.deepEqual(detectionToc.models.map(({ id }) => id), ["models-row", "models-trend", "models-train"], "the TOC stays on the two frames");
   await app.cleanup();
 }
 
 // 4-1) 첫 쪽이 전부 룰 전용이어도 다음 쪽을 읽을 수 있다. 빈 문구는 끝을 확인한 뒤에만
 {
-  routes = baseRoutes({ "GET /api/configurations": (target) => json(target.searchParams.get("cursor") ? page([active]) : page([ruleOnly], "next-1")) });
-  const app = await mount("/detection/models?tab=all");
+  routes = baseRoutes({ "GET /api/configurations": (target) => json(target.searchParams.get("active") === "true" ? page([]) : target.searchParams.get("cursor") ? page([active]) : page([ruleOnly], "next-1")) });
+  const app = await mount();
   await wait(() => app.button("더 보기"), "more stays reachable");
   assert.ok(!app.shown().includes("학습된 버전이 없습니다."));
+  // 다음 쪽 읽기는 화면에 하나(틀 구역 아래), 틀 구역 안에는 없다
+  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "더 보기").length, 1, "one more button for the whole list");
+  const moreBox = app.renderer.root.findAll((node) => node.props["data-versions-more"])[0];
+  assert.ok(moreBox && !app.renderer.root.findAll((node) => node.props["data-slot"] === "section-card").some((card) => card.findAll((node) => node.props["data-versions-more"]).length), "outside the frame cards");
   await app.click("더 보기");
   await wait(() => app.shown().includes(V1.slice(0, 8)), "next page");
   await app.cleanup();
 
   routes = baseRoutes({ "GET /api/configurations": () => json(page([ruleOnly])) });
-  const empty = await mount("/detection/models?tab=all");
-  await wait(() => empty.shown().includes("학습된 버전이 없습니다."), "empty after the last page");
+  const empty = await mount();
+  await wait(() => empty.shown().includes("행 단위 모델의 학습된 버전이 없습니다."), "empty after the last page");
   await empty.cleanup();
 }
 
-// 4-2) 응답 전에 탭을 바꾸면 늦은 응답을 버린다
+// 4-2) 늦은 다음 쪽은 첫 쪽을 다시 읽은 뒤에는 버리고, 그 뒤 새로 읽은 쪽을 덮지 않는다(useVersions 첫 쪽 묶음)
 {
   let release;
+  let held = 0;
+  const extra = version("abababab-1111-4111-8111-111111111111");
   routes = baseRoutes({ "GET /api/configurations": (target) => {
-    if (target.searchParams.get("cursor")) return new Promise((resolve) => { release = () => resolve(json(page([research]))); });
-    return json(target.searchParams.get("active") === "true" ? page([active]) : page([version(V3)], "next-1"));
+    if (target.searchParams.get("active") === "true") return json(page([active]));
+    if (target.searchParams.get("cursor")) {
+      if (held++ === 0) return new Promise((resolve) => { release = () => resolve(json(page([research]))); });
+      return json(page([extra]));
+    }
+    return json(page([version(V3)], "next-all"));
   } });
-  const app = await mount("/detection/models?tab=all");
+  let client;
+  const app = await mount("/detection/models", { prepare: (value) => { client = value; } });
   await wait(() => app.button("더 보기"), "more");
   await act(async () => { void app.button("더 보기").props.onClick(); });
   await wait(() => release, "request in flight");
-  await app.go("현재 운영 버전");
-  await wait(() => app.shown().includes(V1.slice(0, 8)), "active tab");
-  await act(async () => { release(); await new Promise((resolve) => setTimeout(resolve, 20)); });
-  assert.ok(!app.shown().includes(V2.slice(0, 8)), "the late page does not land on the other tab");
-  await app.cleanup();
-}
-
-// 4-3) 늦은 응답은 다른 탭에서 이미 읽은 쪽을 덮지 않는다
-{
-  let release;
-  const extra = version("abababab-1111-4111-8111-111111111111", { active: true });
-  routes = baseRoutes({ "GET /api/configurations": (target) => {
-    const cursor = target.searchParams.get("cursor");
-    if (cursor === "next-all") return new Promise((resolve) => { release = () => resolve(json(page([research]))); });
-    if (cursor === "next-active") return json(page([extra]));
-    return json(target.searchParams.get("active") === "true" ? page([active], "next-active") : page([version(V3)], "next-all"));
-  } });
-  const app = await mount("/detection/models?tab=all");
-  await wait(() => app.button("더 보기"), "more");
-  await act(async () => { void app.button("더 보기").props.onClick(); });
-  await wait(() => release, "request in flight");
-  await app.go("현재 운영 버전");
-  await wait(() => app.shown().includes(V1.slice(0, 8)) && app.button("더 보기")?.props.disabled !== true, "active tab");
+  await act(async () => { await client.invalidateQueries(); });
+  await wait(() => app.button("더 보기") && app.button("더 보기").props.disabled !== true, "first page read again");
   await app.click("더 보기");
-  await wait(() => app.shown().includes("abababab"), "the active tab reads its next page");
+  await wait(() => app.shown().includes("abababab"), "the new next page");
   await act(async () => { release(); await new Promise((resolve) => setTimeout(resolve, 20)); });
   assert.ok(app.shown().includes("abababab"), "the late page does not wipe it");
-  assert.ok(!app.shown().includes(V2.slice(0, 8)));
+  assert.ok(!app.shown().includes(V2.slice(0, 8)), "the late page from the old first page is dropped");
   await app.cleanup();
 }
 
@@ -464,10 +487,11 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
 {
   const cursors = [];
   routes = baseRoutes({ "GET /api/configurations": (target) => {
+    if (target.searchParams.get("active") === "true") return json(page([active]));
     cursors.push(target.searchParams.get("cursor"));
     return json(target.searchParams.get("cursor") ? page([research]) : page([active], "next-1"));
   } });
-  const app = await mount("/detection/models?tab=all");
+  const app = await mount();
   await wait(() => app.button("더 보기"), "more button");
   await app.click("더 보기");
   await wait(() => app.shown().includes(V2.slice(0, 8)), "second page");
@@ -667,8 +691,8 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
 // 10) 단계 주소: 앞 단계가 안 끝났으면 가까운 유효 단계로, 뒤로 가기는 단계와 일치
 {
   routes = baseRoutes();
-  const app = await mount("/detection/models?step=3&tab=all");
-  await wait(() => search(app) === "?step=1&tab=all", "step normalized");
+  const app = await mount("/detection/models?step=3&frame=row");
+  await wait(() => search(app) === "?step=1&frame=row", "step normalized");
   await queryPeriod(app);
   await app.go("다음 · 입력 변수");
   await wait(() => app.shown().includes("error_count, retry_count"), "step 2");
@@ -689,7 +713,7 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
     "POST /api/jobs": () => accepted(),
     [`GET /api/jobs/${JOB}`]: () => json(job("failed", { errorCode: "x" })),
   });
-  const app = await mount("/detection/models?tab=all");
+  const app = await mount("/detection/models?frame=row");
   await wait(() => app.input("period-from"), "period");
   const stepLink = (label) => app.renderer.root.findAll((node) => node.type === "a" && text(node.children) === label)[0];
   const stepLock = (label) => app.renderer.root.findAll((node) => node.type === "span" && node.props["aria-disabled"] === "true" && text(node.children) === label)[0];
@@ -709,7 +733,7 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   await app.click("학습 요청");
   await wait(() => search(app).includes(`job=${JOB}`), "job in the address");
   const back = stepLink("1. 기간").props.href;
-  assert.ok(back.includes("step=1") && back.includes("tab=all") && back.includes(`job=${JOB}`), "other address values stay");
+  assert.ok(back.includes("step=1") && back.includes("frame=row") && back.includes(`job=${JOB}`), "other address values stay");
   await act(async () => { await app.router.navigate(back); });
   await wait(() => app.input("period-from"), "back on step 1");
   assert.equal(app.input("period-from").props.value, "2026-10-01", "the draft stays");
@@ -759,13 +783,14 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const app = await mount();
   await toStep3(app);
   const shown = app.shown();
-  for (const name of ["Isolation Forest", "MiniBatch K-Means", "Extended Isolation Forest", "ml:iforest", "연구 중 · research", "트리 수", "16 ~ 1024", "train-internal-p99-v1 · 조정 안 함"]) {
+  for (const name of ["Isolation Forest", "MiniBatch K-Means", "ml:iforest", "연구 중 · research", "트리 수", "16 ~ 1024", "train-internal-p99-v1 · 조정 안 함"]) {
     assert.ok(shown.includes(name), name);
   }
+  assert.ok(shown.includes("학습할 틀: 행 단위 모델"), "the training frame defaults to the row frame");
   for (const name of ["다른 모델 파라미터", "군집 수 K", "n_init"]) assert.ok(!shown.includes(name), `${name} belongs to another model`);
   const model = (name) => app.renderer.root.findAll((node) => node.type === "button" && node.props["aria-label"] === `${name} 선택`)[0];
   assert.equal(model("MiniBatch K-Means").props.disabled, true, "research models cannot be selected");
-  assert.equal(model("Extended Isolation Forest").props.disabled, true);
+  assert.equal(model("Extended Isolation Forest"), undefined, "the row frame table lists process_row methods only");
   assert.notEqual(model("Isolation Forest").props.disabled, true);
   assert.ok(app.shown().includes("통과 ·"), "readiness passes");
 
@@ -807,7 +832,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   await wait(() => search(app).includes("step=1"), "the finished draft is cleared and returns to step 1");
   assert.equal(useDraftStore.getState().drafts["/detection/models"], undefined, "success clears the draft");
   await tick(50);
-  assert.equal(calls("GET", "/api/configurations").length, readsBefore + 1, "the version list reloads exactly once");
+  // 버전 조회는 두 개(현재 운영 active=true · 전체 버전)이고 각각 한 번만 다시 읽는다.
+  assert.deepEqual(calls("GET", "/api/configurations").slice(readsBefore).map((call) => new URLSearchParams(call.search).get("active")).sort(), [null, "true"],
+    "each version query reloads exactly once");
   await act(async () => new Promise((resolve) => setTimeout(resolve, 5100)));
   const polled = calls("GET", `/api/jobs/${JOB}`).length;
   await act(async () => new Promise((resolve) => setTimeout(resolve, 5100)));
@@ -1129,7 +1156,7 @@ for (const stay of [3, 2]) {
 }
 
 // 12-1c) 나가 있는 동안 성공: 초안은 비우고 결과 표시는 남긴다(복귀 주소가 어떻든)
-for (const address of ["/detection/models", "/detection/models?step=2", "/detection/models?step=3", "/detection/models?tab=all&step=3"]) {
+for (const address of ["/detection/models", "/detection/models?step=2", "/detection/models?step=3", "/detection/models?frame=row&step=3"]) {
   routes = baseRoutes({
     "POST /api/jobs": () => json({ id: JOB, status: "queued", kind: "train", inputSpec: {} }, 201),
     [`GET /api/jobs/${JOB}`]: () => json(job("queued")),
@@ -1147,7 +1174,7 @@ for (const address of ["/detection/models", "/detection/models?step=2", "/detect
   await tick(30);
   assert.ok(back.shown().includes(`결과 보기 · 버전 ${V1.slice(0, 8)}`), `and stays after the draft is cleared · ${address}`);
   assert.ok(search(back).includes(`job=${JOB}`), `job stays in the address · ${address}`);
-  assert.equal(search(back).includes("tab=all"), address.includes("tab=all"));
+  assert.equal(search(back).includes("frame=row"), address.includes("frame=row"));
   assert.equal(useDraftStore.getState().drafts["/detection/models"], undefined);
   await back.cleanup();
 }
@@ -1749,7 +1776,7 @@ const runningJobs = (s) => [...s.jobs.values()].filter((entry) => entry.status =
     "POST /api/jobs": () => accepted(),
     [`GET /api/jobs/${JOB}`]: () => json(job("queued")),
   });
-  const app = await mount("/detection/models?tab=all");
+  const app = await mount("/detection/models?frame=row");
   await queryPeriod(app);
   await app.go("다음 · 입력 변수");
   await wait(() => app.shown().includes("선택 변수 0개"), "field picker");
@@ -1865,4 +1892,32 @@ for (const [hasMore, expected] of [[true, true], [false, false]]) {
   await app.cleanup();
 }
 
-console.log("models page QA passed: versions, detail, three training steps, job progress, refusals, catalog values");
+// 틀별 새 학습(models-ui.md 틀 절): 시계열 틀은 학습할 수 있는 알고리즘이 없으면 단계 대신 카탈로그 사유를 그대로, 행 단위 틀로 바꾸는 링크
+{
+  routes = baseRoutes();
+  const app = await mount("/detection/models?frame=trend&step=2");
+  await wait(() => app.shown().includes("시계열 모델은 지금 학습할 수 없습니다"), "trend training blocked");
+  const blocked = app.renderer.root.findAll((node) => node.props["data-train-blocked"] === "trend" && typeof node.type === "string")[0];
+  assert.ok(text(blocked.children).includes("Extended Isolation Forest · research_only"), "catalog reason as is");
+  assert.ok(app.shown().includes("학습할 틀: 시계열 모델"));
+  assert.ok(!app.shown().includes("조회 시작") && !app.shown().includes("모델·파라미터"), "no steps while the frame cannot train");
+  assert.equal(app.input("period-from"), undefined);
+  const toRow = app.link("행 단위 모델로 바꾸기");
+  // 막힌 틀은 갈 수 있는 단계가 없어 step이 1로 정규화되고, 틀을 바꾸는 링크는 그 주소의 다른 값을 그대로 둔다.
+  assert.equal(toRow.props.href, "/detection/models?frame=row&step=1#models-train", "switching keeps the other address values and the area hash");
+  await app.go("행 단위 모델로 바꾸기");
+  await wait(() => app.input("period-from"), "row frame steps");
+  assert.ok(!app.shown().includes("지금 학습할 수 없습니다"));
+  await app.cleanup();
+
+  // 3단계 표는 그 틀의 알고리즘만: 시계열 방법을 실행 가능으로 바꾼 카탈로그에서도 행 단위 틀 표에는 나오지 않는다
+  const trendRunnable = { ...catalog, methods: catalog.methods.map((method) => (method.methodId === "ml:eif" ? { ...method, executable: { process: true, window: false } } : method)) };
+  routes = baseRoutes({ "GET /api/jobs/capabilities": () => json({ ...capabilities(), methodCatalog: trendRunnable }) });
+  const trend = await mount("/detection/models?frame=trend");
+  await wait(() => trend.input("period-from"), "a runnable trend method opens the steps");
+  const trendTrain = trend.renderer.root.findAll((node) => node.type === "a" && node.props["data-new-train"] === "trend")[0];
+  assert.equal(trendTrain.props.href, "/detection/models?frame=trend&step=1#models-train", "the trend frame head links to its training");
+  await trend.cleanup();
+}
+
+console.log("models page QA passed: frame sections, versions, detail, three training steps per frame, job progress, refusals, catalog values");

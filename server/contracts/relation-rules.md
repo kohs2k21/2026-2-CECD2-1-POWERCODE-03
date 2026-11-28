@@ -1,5 +1,5 @@
 Created: 2026-11-12T16:31:29+09:00
-Updated: 2026-11-28T21:00:00+09:00
+Updated: 2026-11-28T18:25:00+09:00
 Author: Claude Code — Detector 세션(builder)
 Status: current — 실험 기능 설계(Detector 구현 세부는 3.4·6.5절, 9절은 설계 당시 변경 계획 기록)
 

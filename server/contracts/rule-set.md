@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-28T21:00:00+09:00
+Updated: 2026-11-28T18:25:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 

@@ -23,7 +23,7 @@ import uuid
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from detector import attempt_v04, jobs
+from detector import attempt_v04, jobs, operational_state
 from detector.attempt_v04 import judge_row
 from detector.computation import load_model_context
 from detector.decision import decide
@@ -256,6 +256,107 @@ class FixedPinning(unittest.TestCase):
             pin_fixed_state(FakeConn(stored=(wrong, 3, content)), 1, wrong, 0, None, [], active_model_set_revision=0)
         with self.assertRaisesRegex(ValueError, "^rule_set_snapshot_unavailable$"):
             pin_fixed_state(FakeConn(stored=None), 1, conn.stored[0], 0, None, [], active_model_set_revision=0)
+
+
+class FramePinning(unittest.TestCase):
+    """두 틀(model-version.md "두 틀 — 활성 집합 규칙" 절, detection-decision.md C31·6절·7.4): 고정 때 항목을 스냅샷
+    frame(없으면 row)으로 나누고 카탈로그 frame과 비교한다. 행 경로에는 행 틀 모델만 들어간다."""
+
+    RAW = {"status": "F", "total_count": "10", "success_count": "9", "error_count": "1", "elapsed_ms": "9000"}
+
+    def setUp(self):
+        operational_state._LOGGED_FRAME_MISMATCH.clear()
+        self.row_id, self.trend_id = str(uuid.uuid4()), str(uuid.uuid4())
+
+    def pin(self, models, **options):
+        return pin_operational_state(FakeConn(models=models, **options))
+
+    def test_missing_frame_reads_as_row(self):
+        state = self.pin([{"configVersionId": self.row_id, "modelKey": "iforest"}])
+        self.assertEqual([(model.method_id, model.frame) for model in state.active_models], [("ml:iforest", "row")])
+        self.assertEqual((state.trend_models, state.trend_frame_mismatch), ((), ()))
+        # 비교 평가 종합이 넘기는 형식(frame 없음)도 같은 함수라 같은 결과다.
+        conn = FakeConn()
+        fixed = pin_fixed_state(conn, 1, conn.stored[0], 0, None,
+                                [{"configVersionId": self.row_id, "modelKey": "iforest"}], active_model_set_revision=0)
+        self.assertEqual(fixed.active_models, state.active_models)
+
+    def test_trend_models_stay_out_of_the_row_path(self):
+        state = self.pin([{"configVersionId": self.trend_id, "modelKey": "eif", "frame": "trend"},
+                          {"configVersionId": self.row_id, "modelKey": "iforest", "frame": "row"}])
+        self.assertEqual([model.method_id for model in state.active_models], ["ml:iforest"])
+        self.assertEqual([(model.method_id, model.frame) for model in state.trend_models], [("ml:eif", "trend")])
+        self.assertEqual(state.trend_frame_mismatch, ())
+        read = []
+
+        def context(_conn, config_id, model_key, _source):
+            read.append(model_key)
+            raise ValueError("unsupported_config_schema")
+        with patch.object(attempt_v04, "load_model_context", side_effect=context):
+            models = attempt_v04.load_models(object(), state, uuid.uuid4())
+        self.assertEqual(read, ["iforest"], "시계열 모델은 읽지 않는다")
+        tasks = attempt_v04._tasks(state, models, self.RAW, None)
+        self.assertEqual([task.method_id for task in tasks if task.lane == "ml"], ["ml:iforest"])
+        decided = judge_row(state, models, self.RAW, None, None, started_at=time.monotonic()).decided
+        self.assertEqual([method["methodId"] for method in decided["methodResults"] if method["category"] == "ml"],
+                         ["ml:iforest"], "n_ml = 행 틀 모델 수")
+
+    def test_row_frame_mismatch_fails_the_attempt(self):
+        # frame 없는 항목은 row로 읽는다 — 카탈로그 frame이 trend인 eif면 행 틀 불일치(룰이 켜져 있어도 멈춘다).
+        with self.assertLogs("detector.operational_state", "WARNING") as logs:
+            for item in ({"modelKey": "eif"}, {"modelKey": "eif", "frame": "row"}):
+                with self.subTest(item=item), self.assertRaisesRegex(ValueError, "^frame_mismatch$"):
+                    self.pin([{"configVersionId": self.row_id, **item}])
+            conn = FakeConn()
+            with self.assertRaisesRegex(ValueError, "^frame_mismatch$"):
+                pin_fixed_state(conn, 1, conn.stored[0], 0, None,
+                                [{"configVersionId": self.row_id, "modelKey": "eif"}], active_model_set_revision=0)
+        self.assertIn("methodId=ml:eif snapshotFrame=row catalogFrame=trend", logs.output[0])
+
+    def test_trend_frame_mismatch_keeps_row_judgment(self):
+        models = [{"configVersionId": self.row_id, "modelKey": "other_model"},
+                  {"configVersionId": self.trend_id, "modelKey": "iforest", "frame": "trend"}]
+        with self.assertLogs("detector.operational_state", "WARNING") as logs:
+            state = self.pin(models)
+            self.pin(models)
+        self.assertEqual(len(logs.records), 1, "같은 리비전·방법의 불일치는 한 번만 남긴다")
+        self.assertIn("methodId=ml:iforest", logs.output[0])
+        self.assertEqual([model.method_id for model in state.active_models], ["ml:other_model"])
+        self.assertEqual([model.method_id for model in state.trend_models], ["ml:iforest"])
+        self.assertEqual(state.trend_frame_mismatch, ("ml:iforest",))
+        decided = judge_row(state, [], self.RAW, None, None, started_at=time.monotonic()).decided
+        self.assertEqual(decided["composite"]["grade"], "anomaly", "행 판정은 계속한다")
+
+    def test_trend_only_without_rules_is_zero_methods(self):
+        content = snapshot([{**rule, "enabled": False} for rule in V2_HARD_RULES])
+        with self.assertRaisesRegex(ValueError, "^detection_methods_empty$"):
+            self.pin([{"configVersionId": self.trend_id, "modelKey": "eif", "frame": "trend"}], content=content)
+        # 룰이 있으면 시계열 모델은 방법 수에 들지 않고 행 판정은 룰만으로 돈다.
+        state = self.pin([{"configVersionId": self.trend_id, "modelKey": "eif", "frame": "trend"}])
+        self.assertEqual(state.active_models, ())
+
+    def test_unknown_catalog_method_keeps_snapshot_frame(self):
+        state = self.pin([{"configVersionId": self.trend_id, "modelKey": "trend-unknown", "frame": "trend"},
+                          {"configVersionId": self.row_id, "modelKey": "unknown"}])
+        self.assertEqual([model.method_id for model in state.trend_models], ["ml:trend-unknown"])
+        self.assertEqual([model.method_id for model in state.active_models], ["ml:unknown"])
+        self.assertEqual(state.trend_frame_mismatch, ())
+        model = attempt_v04._Model(state.active_models[0], None)
+        self.assertEqual(attempt_v04._run_model(model, {}, None).result["cause"], "not_executable")
+
+    def test_malformed_frame_or_duplicate_fails(self):
+        for frame in ("window", None, 3, ["row"]):
+            with self.subTest(frame=frame), self.assertRaisesRegex(ValueError, "^invalid_active_model_set$"):
+                self.pin([{"configVersionId": self.row_id, "modelKey": "iforest", "frame": frame}])
+        with self.assertRaisesRegex(ValueError, "^duplicate_method_id$"):
+            self.pin([{"configVersionId": self.row_id, "modelKey": "iforest"},
+                      {"configVersionId": self.trend_id, "modelKey": "iforest", "frame": "trend"}])
+
+    def test_result_code_comes_from_the_catalog(self):
+        self.assertFalse(hasattr(attempt_v04, "ML_RESULT_CODES"), "고정 사전 대신 카탈로그 resultCode")
+        catalog = {item["methodId"]: item for item in json.loads(CATALOG.read_text(encoding="utf-8"))["methods"]}
+        self.assertEqual(catalog["ml:iforest"]["resultCode"], "IF_ANOMALY")
+        # 실제 IF 산출물로 _run_model이 IF_ANOMALY를 내는지는 test_ml_attribution이 본다.
 
 
 class JudgeRow(unittest.TestCase):

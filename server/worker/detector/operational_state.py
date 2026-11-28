@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 from typing import Any, Mapping
 import uuid
 
@@ -17,12 +18,18 @@ from detector.protocol_rules import ProtocolRule, path_key as _protocol_path_key
 from detector.relation_rules import JUDGMENT_KINDS, RelationRule, read_relation_rules
 from detector.relation_graph import graph_value_absent
 from detector.soft_rules import fixed_decimal
+from methods.registry import FRAMES, method_for_key
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class ActiveModel:
     config_version_id: uuid.UUID
     model_key: str
+    # 활성 스냅샷 항목의 틀(`frame`, 없으면 row — model-version.md "두 틀 — 활성 집합 규칙" 절). 카탈로그 frame과의
+    # 일치는 고정 때(_split_frames) 본다.
+    frame: str = "row"
 
     @property
     def method_id(self) -> str:
@@ -36,11 +43,16 @@ class PinnedState:
     revisions: PinnedRevisions
     hard_rules: HardRuleSelection
     soft_rules: tuple[Mapping[str, Any], ...]
+    # 행 틀 활성 모델만(활성 집합 순). 실행 검사·모델 읽기·행 과제·비교 평가 종합·n_ml이 이 목록을 쓴다.
     active_models: tuple[ActiveModel, ...]
     # 켜진 관계 규칙(v3 행만, 저장 순). 정보 표시 kind(allowed_branch)도 들어 있다 — 방법 수에는 판정 kind만 센다.
     relation_rules: tuple[RelationRule, ...] = ()
     # 프로토콜 항목(v3 행만, 저장 순, 꺼진 항목 포함 — 꺼진 항목의 인터페이스는 적용 안 함, protocol-rules.md 4.1).
     protocol_rules: tuple[ProtocolRule, ...] = ()
+    # 시계열 틀 활성 모델(활성 집합 순). PROCESS 판정 방법이 아니라 행 판정에 넣지 않고 보관만 한다(시계열 판정은 후속).
+    trend_models: tuple[ActiveModel, ...] = ()
+    # 스냅샷 frame=trend인데 카탈로그 frame이 다른 항목의 methodId. 시계열 틀만 멈출 대상이고 행 판정은 계속한다.
+    trend_frame_mismatch: tuple[str, ...] = ()
 
 
 HASH_VERSIONS = (1, 2, 3)
@@ -207,19 +219,58 @@ def _soft_rules(items: Any) -> tuple[Mapping[str, Any], ...]:
 
 
 def _active_models(items: Any) -> tuple[ActiveModel, ...]:
+    """활성 스냅샷 항목 전체(두 틀, 저장 순). `frame` 키가 없으면 row, 있으면 row·trend 중 하나여야 한다."""
     if not isinstance(items, list):
         raise ValueError("invalid_active_model_set")
     models = []
     for item in items:
         try:
-            model = ActiveModel(uuid.UUID(item["configVersionId"]), item["modelKey"])
+            model = ActiveModel(uuid.UUID(item["configVersionId"]), item["modelKey"], item.get("frame", "row"))
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise ValueError("invalid_active_model_set") from exc
-        if not isinstance(model.model_key, str):
+        if not isinstance(model.model_key, str) or not isinstance(model.frame, str) or model.frame not in FRAMES:
             raise ValueError("invalid_active_model_set")
         method_category(model.method_id)
         models.append(model)
+    # 같은 방법이 두 번(틀이 달라도) 있으면 저장 검증을 거치지 않은 집합이다. 행 틀만 세는 실행 검사 전에 전체로 본다.
+    method_ids = [model.method_id for model in models]
+    if len(set(method_ids)) != len(method_ids):
+        raise ValueError("duplicate_method_id")
     return tuple(models)
+
+
+# 고정은 시도마다 일어나므로 같은 불일치 로그는 (활성 집합 리비전, methodId, 스냅샷 frame)마다 한 번만 남긴다.
+_LOGGED_FRAME_MISMATCH: set[tuple[Any, str, str]] = set()
+
+
+def _log_frame_mismatch(revision: Any, model: ActiveModel, catalog_frame: str) -> None:
+    key = (revision, model.method_id, model.frame)
+    if key in _LOGGED_FRAME_MISMATCH:
+        return
+    _LOGGED_FRAME_MISMATCH.add(key)
+    LOGGER.warning("frame_mismatch activeModelSetRevision=%s methodId=%s snapshotFrame=%s catalogFrame=%s",
+                   revision, model.method_id, model.frame, catalog_frame)
+
+
+def _split_frames(models: tuple[ActiveModel, ...], revision: Any
+                  ) -> tuple[tuple[ActiveModel, ...], tuple[ActiveModel, ...], tuple[str, ...]]:
+    """(행 틀 모델, 시계열 틀 모델, 시계열 틀 불일치 methodId). 틀은 스냅샷 frame 기준이다(카탈로그 값이 아님).
+
+    항목마다 스냅샷 frame과 이 이미지의 카탈로그 frame을 비교해 불일치 항목이 속한 틀만 fail-closed
+    (model-version.md "두 틀 — 활성 집합 규칙" 절 고정 시 불일치): 행 틀이면 판정 행 없이 시도 실패(`frame_mismatch`,
+    룰 판정도 멈춤), 시계열 틀이면 그 틀만 멈출 대상으로 남기고 행 판정은 계속한다. 카탈로그에 없는 방법은 비교하지
+    않는다 — 그 방법만 not_executable 미판정이고 집합은 그대로다.
+    """
+    row, trend, trend_mismatch = [], [], []
+    for model in models:
+        method = method_for_key(model.model_key)
+        if method is not None and method.frame != model.frame:
+            _log_frame_mismatch(revision, model, method.frame)
+            if model.frame == "row":
+                raise ValueError("frame_mismatch")
+            trend_mismatch.append(model.method_id)
+        (row if model.frame == "row" else trend).append(model)
+    return tuple(row), tuple(trend), tuple(trend_mismatch)
 
 
 # 호출자가 hash 버전을 주지 않으면 리비전 행의 content_hash_version을 쓴다(None과 구별하는 표지).
@@ -253,7 +304,7 @@ def pin_fixed_state(conn: Any, rule_set_revision: Any, rule_set_hash: Any, polic
     """주어진 리비전 값으로 운영 상태를 고정한다. 운영 뷰를 읽지 않을 뿐 pin_operational_state와 같은 검사를 한다.
 
     입력 형식은 운영 뷰 열과 같다: policy_value = detection_policy(jsonb, 리비전 0이면 NULL), active_models =
-    [{configVersionId, modelKey}, …]. 비교 평가(Trainer)가 접수 때 고정한 값으로 부른다.
+    [{configVersionId, modelKey, frame?}, …](frame 없으면 row). 비교 평가(Trainer)가 접수 때 고정한 값으로 부른다.
     """
     snapshot, hash_version = read_rule_set_snapshot(conn, rule_set_revision, rule_set_hash, rule_set_hash_version)
     policy = _policy(policy_revision, policy_value)
@@ -264,10 +315,13 @@ def pin_fixed_state(conn: Any, rule_set_revision: Any, rule_set_hash: Any, polic
     # 판정 규칙의 위험도를 하드룰 선택과 같은 객체에 고정한다(evidence 대조가 같은 값을 본다).
     hard_rules = read_hard_rule_snapshot(snapshot["hardRules"], tuple((rule.id, rule.severity) for rule in judged),
                                          tuple((rule.id, rule.severity) for rule in protocols))
-    state = PinnedState(policy, PinnedRevisions(rule_set_revision, rule_set_hash, policy_revision,
-                                                active_model_set_revision),
-                        hard_rules, _soft_rules(snapshot["softRules"]), _active_models(active_models), relation_rules,
-                        protocol_rules)
+    # 검사 순서는 그대로: 리비전 값 → 소프트룰 → 활성 집합(틀 분리·불일치) → 실행 검사.
+    revisions = PinnedRevisions(rule_set_revision, rule_set_hash, policy_revision, active_model_set_revision)
+    soft_rules = _soft_rules(snapshot["softRules"])
+    row_models, trend_models, trend_mismatch = _split_frames(_active_models(active_models), active_model_set_revision)
+    state = PinnedState(policy, revisions, hard_rules, soft_rules, row_models, relation_rules, protocol_rules,
+                        trend_models, trend_mismatch)
+    # "탐지 방법 0개"·k 검사는 행 판정 방법만 센다(n_ml = 행 틀 모델 수). 시계열 모델만 있고 룰이 0개면 방법 0개다.
     ensure_executable(policy, [*state.hard_rules.enabled_ids, *(rule.id for rule in judged),
                                *(rule.id for rule in protocols),
                                *(rule["id"] for rule in state.soft_rules),
